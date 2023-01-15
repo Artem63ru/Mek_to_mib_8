@@ -1,7 +1,3 @@
-// Copyright 2020 thinkgos (thinkgo@aliyun.com).  All rights reserved.
-// Use of this source code is governed by a version 3 of the GNU General
-// Public License, license that can be found in the LICENSE file.
-
 // Package asdu provides the OSI presentation layer.
 package asdu
 
@@ -172,6 +168,34 @@ func (sf *ASDU) Reply(c Cause, addr CommonAddr) *ASDU {
 func (sf *ASDU) SendReplyMirror(c Connect, cause Cause) error {
 	r := NewASDU(sf.Params, sf.Identifier)
 	r.Coa.Cause = cause
+	//sf.AppendInfoObjAddr(0)
+	r.infoObj = append(r.infoObj, sf.infoObj...)
+	return c.Send(r)
+}
+
+// Моя функция для показа 100
+func (sf *ASDU) SendReply_100(c Connect, cause Cause) error {
+	r := NewASDU(sf.Params, sf.Identifier)
+	r.Coa.Cause = cause
+
+	r.infoObj = append(r.infoObj, sf.infoObj...)
+	return c.Send(r)
+}
+
+// Моя функция для показа M_SP_NA_1
+func (sf *ASDU) SendReply_M_SP_NA_1(c Connect, cause Cause) error {
+	r := NewASDU(sf.Params, sf.Identifier)
+	r.Type = M_SP_NA_1
+	r.Coa.Cause = 20
+	r.infoObj = append(r.infoObj, sf.infoObj...)
+	return c.Send(r)
+}
+
+// Моя функция для показа M_ME_NB_1
+func (sf *ASDU) SendReply_M_ME_NB_1(c Connect, cause Cause) error {
+	r := NewASDU(sf.Params, sf.Identifier)
+	r.Type = M_ME_NB_1
+	r.Coa.Cause = 20
 	r.infoObj = append(r.infoObj, sf.infoObj...)
 	return c.Send(r)
 }
@@ -228,6 +252,7 @@ func (sf *ASDU) SendReplyMirror(c Connect, cause Cause) error {
 
 // MarshalBinary honors the encoding.BinaryMarshaler interface.
 func (sf *ASDU) MarshalBinary() (data []byte, err error) {
+	//var n = 0
 	switch {
 	case sf.Coa.Cause == Unused:
 		return nil, ErrCauseZero
@@ -263,6 +288,33 @@ func (sf *ASDU) MarshalBinary() (data []byte, err error) {
 		offset++
 		raw[offset] = byte(sf.CommonAddr >> 8)
 	}
+	//offset++
+	//if len(sf.infoObj) > 1 {
+	//	raw[offset] = sf.infoObj[0]
+	//	offset++
+	//	raw[offset] = sf.infoObj[0] >> 8
+	//	offset++
+	//	raw[offset] = sf.infoObj[0] >> 8
+	//	offset++
+	//	raw[offset] = sf.infoObj[1]
+	//} else {
+	//	raw[offset] = 0
+	//	offset++
+	//	raw[offset] = 0
+	//	offset++
+	//	raw[offset] = 0
+	//	offset++
+	//	raw[offset] = sf.infoObj[0]
+	//}
+
+	//
+	//if sf.Coa.Cause == 20 {
+	//	raw[6] = 0
+	//	raw[7] = 10
+	//	raw[8] = 0
+	//	raw[9] = 1
+	//}
+
 	return raw, nil
 }
 

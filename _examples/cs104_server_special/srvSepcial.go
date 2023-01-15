@@ -12,6 +12,7 @@ import (
 )
 
 func main() {
+
 	option := cs104.NewOption()
 	err := option.AddRemoteServer("127.0.0.1:2404")
 	if err != nil {

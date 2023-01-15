@@ -6,6 +6,7 @@ package cs104
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"strings"
@@ -426,13 +427,26 @@ func (sf *SrvSession) serverHandler(asduPack *asdu.ASDU) error {
 			asduPack.Identifier.Coa.Cause == asdu.Deactivation) {
 			return asduPack.SendReplyMirror(sf, asdu.UnknownCOT)
 		}
-		if asduPack.CommonAddr == asdu.InvalidCommonAddr {
-			return asduPack.SendReplyMirror(sf, asdu.UnknownCA)
-		}
+		//if asduPack.Identifier.Coa.Cause == asdu.Activation && asduPack.Identifier.Type == asdu.C_IC_NA_1 {
+		//	//		asduPack.SendReply_100(sf, asdu.ActivationCon)
+		//	asdu.InterrogationCmd(sf, asduPack.Coa, 0, 20)
+		//	var rt asdu.SinglePointInfo
+		//	rt.Ioa = 200
+		//	rt.Time = time.Now()
+		//	rt.Qds = 1
+		//	rt.Value = true
+		//	asduPack.Coa.Cause = 20
+		//	asdu.Single(sf, false, asduPack.Coa, asduPack.CommonAddr, rt)
+		//	//	asduPack.SendReply_M_SP_NA_1(sf, asdu.ActivationCon)
+		//	//	asduPack.SendReply_M_ME_NB_1(sf, asdu.ActivationCon)
+		//	return asduPack.SendReply_100(sf, asdu.ActivationTerm)
+		//	//return asduPack.SendReplyMirror(sf, asdu.ActivationCon)
+		//}
 		ioa, qoi := asduPack.GetInterrogationCmd()
-		if ioa != asdu.InfoObjAddrIrrelevant {
-			return asduPack.SendReplyMirror(sf, asdu.UnknownIOA)
-		}
+		//if ioa != asdu.InfoObjAddrIrrelevant {
+		//	return asduPack.SendReplyMirror(sf, asdu.UnknownIOA)
+		//}
+		fmt.Print(ioa)
 		return sf.handler.InterrogationHandler(sf, asduPack, qoi)
 
 	case asdu.C_CI_NA_1: // CounterInterrogationCmd
@@ -529,10 +543,20 @@ func (sf *SrvSession) Params() *asdu.Params {
 
 // Send asdu frame
 func (sf *SrvSession) Send(u *asdu.ASDU) error {
-	if !sf.IsConnected() {
-		return ErrUseClosedConnection
-	}
+	//if !sf.IsConnected() {
+	//	return ErrUseClosedConnection
+	//}
 	data, err := u.MarshalBinary()
+	if u.Identifier.Type == asdu.M_ME_NB_1 {
+		byteArray := []byte{11, 1, 20, 0, 1, 0, 0, 20, 0, 10, 1, 0}
+		select {
+		case sf.sendASDU <- byteArray:
+		default:
+			return ErrBufferFulled
+		}
+		return nil
+	}
+
 	if err != nil {
 		return err
 	}
