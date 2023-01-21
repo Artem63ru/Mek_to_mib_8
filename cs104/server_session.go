@@ -7,15 +7,17 @@ package cs104
 import (
 	"context"
 	"fmt"
+	"github.com/thinkgos/go-iecp5/asdu"
+	"github.com/thinkgos/go-iecp5/clog"
 	"io"
+	"log"
+	"math/rand"
 	"net"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/thinkgos/go-iecp5/asdu"
-	"github.com/thinkgos/go-iecp5/clog"
+	//"./asdu/asdu"
 )
 
 const (
@@ -166,6 +168,12 @@ func (sf *SrvSession) run(ctx context.Context) {
 	go sf.recvLoop()
 	go sf.sendLoop()
 	go sf.handlerLoop()
+	Par := &asdu.Params{CauseSize: 2, CommonAddrSize: 2, InfoObjAddrSize: 3, InfoObjTimeZone: time.UTC}
+	vari := asdu.VariableStruct{Number: 1, IsSequence: false}
+	coa := asdu.CauseOfTransmission{Cause: 3, IsTest: false, IsNegative: false}
+	id := asdu.Identifier{Type: 1, Variable: vari, Coa: coa, OrigAddr: 1, CommonAddr: 1}
+	asduPack := asdu.NewASDU(Par, id)
+	//asduPack := asdu.NewEmptyASDU(asdu.ParamsWide)
 
 	// default: STOPDT, when connected establish and not enable "data transfer" yet
 	var isActive = false
@@ -188,6 +196,7 @@ func (sf *SrvSession) run(ctx context.Context) {
 	sendUFrame := func(which byte) {
 		sf.Debug("TX uFrame %v", uAPCI{which})
 		sf.sendRaw <- newUFrame(which)
+		asduPack.Transfer(sf)
 	}
 
 	sendIFrame := func(asdu1 []byte) {
@@ -217,6 +226,7 @@ func (sf *SrvSession) run(ctx context.Context) {
 		}
 		sf.Debug("run stopped!")
 	}()
+	//	go sf.send_parad(sf, asduPack)
 
 	for {
 		if isActive && seqNoCount(sf.ackNoSend, sf.seqNoSend) <= sf.config.SendUnAckLimitK {
@@ -230,6 +240,7 @@ func (sf *SrvSession) run(ctx context.Context) {
 			default: // make no block
 			}
 		}
+
 		select {
 		case <-sf.ctx.Done():
 			return
@@ -321,6 +332,54 @@ func (sf *SrvSession) run(ctx context.Context) {
 					sf.Error("illegal U-Frame functions[0x%02x] ignored", head.function)
 				}
 			}
+		}
+	}
+}
+
+func (sf *SrvSession) send_parad(c asdu.Connect, asduPack *asdu.ASDU) {
+	var rt asdu.SinglePointInfo
+	rt.Ioa = 200
+	rt.Time = time.Now()
+	rt.Qds = 1
+	rt.Value = true
+	var vale asdu.MeasuredValueFloatInfo
+	vale.Ioa = 4001
+	vale.Qds = 0
+	vale.Value = 150
+	var vale1 asdu.MeasuredValueFloatInfo
+	vale1.Ioa = 4002
+	vale1.Qds = 0
+	vale1.Value = 150
+	var vale3 asdu.MeasuredValueScaledInfo
+	vale3.Ioa = 4003
+	//vale3.Qds = 0
+	vale3.Value = 20
+
+	for {
+		err := asdu.Single(c, false, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, asduPack.CommonAddr, rt)
+		asdu.MeasuredValueFloatCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, asduPack.CommonAddr, vale)
+		asdu.MeasuredValueFloatCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, asduPack.CommonAddr, vale1)
+		asdu.MeasuredValueScaledCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, asduPack.CommonAddr, vale3)
+		if err != nil {
+			log.Println("falied", err)
+		} else {
+			log.Println("success", err)
+		}
+		vale.Value = rand.Float32()
+		vale1.Value = rand.Float32()
+		vale3.Value = int16(rand.Intn(100))
+		vale.Time = time.Now()
+		vale1.Time = time.Now()
+		vale3.Time = time.Now()
+		if rt.Value {
+			rt.Value = false
+		} else {
+			rt.Value = true
+		}
+		time.Sleep(time.Second * 1)
+		//	sf.
+		if !sf.IsConnected() {
+			return
 		}
 	}
 }
@@ -427,27 +486,10 @@ func (sf *SrvSession) serverHandler(asduPack *asdu.ASDU) error {
 			asduPack.Identifier.Coa.Cause == asdu.Deactivation) {
 			return asduPack.SendReplyMirror(sf, asdu.UnknownCOT)
 		}
-		//if asduPack.Identifier.Coa.Cause == asdu.Activation && asduPack.Identifier.Type == asdu.C_IC_NA_1 {
-		//	//		asduPack.SendReply_100(sf, asdu.ActivationCon)
-		//	asdu.InterrogationCmd(sf, asduPack.Coa, 0, 20)
-		//	var rt asdu.SinglePointInfo
-		//	rt.Ioa = 200
-		//	rt.Time = time.Now()
-		//	rt.Qds = 1
-		//	rt.Value = true
-		//	asduPack.Coa.Cause = 20
-		//	asdu.Single(sf, false, asduPack.Coa, asduPack.CommonAddr, rt)
-		//	//	asduPack.SendReply_M_SP_NA_1(sf, asdu.ActivationCon)
-		//	//	asduPack.SendReply_M_ME_NB_1(sf, asdu.ActivationCon)
-		//	return asduPack.SendReply_100(sf, asdu.ActivationTerm)
-		//	//return asduPack.SendReplyMirror(sf, asdu.ActivationCon)
-		//}
 		ioa, qoi := asduPack.GetInterrogationCmd()
-		//if ioa != asdu.InfoObjAddrIrrelevant {
-		//	return asduPack.SendReplyMirror(sf, asdu.UnknownIOA)
-		//}
+		send_act := sf.handler.InterrogationHandler(sf, asduPack, qoi)
 		fmt.Print(ioa)
-		return sf.handler.InterrogationHandler(sf, asduPack, qoi)
+		return send_act
 
 	case asdu.C_CI_NA_1: // CounterInterrogationCmd
 		if asduPack.Identifier.Coa.Cause != asdu.Activation {
@@ -469,6 +511,7 @@ func (sf *SrvSession) serverHandler(asduPack *asdu.ASDU) error {
 		if asduPack.CommonAddr == asdu.InvalidCommonAddr {
 			return asduPack.SendReplyMirror(sf, asdu.UnknownCA)
 		}
+		//	sf.IsConnected()
 		return sf.handler.ReadHandler(sf, asduPack, asduPack.GetReadCmd())
 
 	case asdu.C_CS_NA_1: // ClockSynchronizationCmd
@@ -483,6 +526,7 @@ func (sf *SrvSession) serverHandler(asduPack *asdu.ASDU) error {
 		if ioa != asdu.InfoObjAddrIrrelevant {
 			return asduPack.SendReplyMirror(sf, asdu.UnknownIOA)
 		}
+
 		return sf.handler.ClockSyncHandler(sf, asduPack, tm)
 
 	case asdu.C_TS_NA_1: // TestCommand
@@ -543,20 +587,10 @@ func (sf *SrvSession) Params() *asdu.Params {
 
 // Send asdu frame
 func (sf *SrvSession) Send(u *asdu.ASDU) error {
-	//if !sf.IsConnected() {
-	//	return ErrUseClosedConnection
-	//}
-	data, err := u.MarshalBinary()
-	if u.Identifier.Type == asdu.M_ME_NB_1 {
-		byteArray := []byte{11, 1, 20, 0, 1, 0, 0, 20, 0, 10, 1, 0}
-		select {
-		case sf.sendASDU <- byteArray:
-		default:
-			return ErrBufferFulled
-		}
-		return nil
+	if !sf.IsConnected() {
+		return ErrUseClosedConnection
 	}
-
+	data, err := u.MarshalBinary()
 	if err != nil {
 		return err
 	}

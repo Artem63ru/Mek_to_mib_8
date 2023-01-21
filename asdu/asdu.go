@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math/bits"
+	"math/rand"
 	"time"
 )
 
@@ -28,6 +29,8 @@ var (
 	ParamsNarrow = &Params{CauseSize: 1, CommonAddrSize: 1, InfoObjAddrSize: 1, InfoObjTimeZone: time.UTC}
 	// ParamsWide is the largest configuration.
 	ParamsWide = &Params{CauseSize: 2, CommonAddrSize: 2, InfoObjAddrSize: 3, InfoObjTimeZone: time.UTC}
+	// Массив параметров флоат для передачи параметров по МЭК 104.
+	Par_send = []BD_params_float{}
 )
 
 // Params 定义了ASDU相关特定参数
@@ -52,6 +55,20 @@ type Params struct {
 	// InfoObjTimeZone controls the time tag interpretation.
 	// The standard fails to mention this one.
 	InfoObjTimeZone *time.Location
+}
+
+// Описание структуры набора параметров для обмена
+type BD_params_float struct {
+	// порядковый номер параметра
+	ID int
+	// Наименование параметра
+	Name string
+	// Описание параметра /адрес/значение/регистры передачи/время для протокола МЭК 104
+	Mek_104 MeasuredValueFloatInfo
+	// Адрес параметра в Modbus устройтвые источника / ноемр регистра
+	Mod_adress int
+	// Время последнего изменения - опционально
+	Uptime time.Time
 }
 
 // Valid returns the validation result of params.
@@ -380,4 +397,48 @@ func (sf *ASDU) fixInfoObjSize() error {
 	}
 
 	return nil
+}
+
+func (sf *ASDU) Init_par() {
+	var vale MeasuredValueFloatInfo
+	for i := 0; i < 4; i++ {
+		vale.Ioa = InfoObjAddr(uint32(i) + 4001)
+		vale.Qds = 0
+		vale.Value = float32(0)
+		vale.Time = time.Now()
+		bd := BD_params_float{1 + i, "Наименование 1", vale, 101 + i, time.Now()}
+		Par_send = append(Par_send, bd)
+	}
+	//if Par_send == nil:
+	//	return panic(1)
+	return
+}
+
+// Спародическая передача параметров на верх
+func (sf *ASDU) Transfer(c Connect) {
+	for i := 0; i < 4; i++ {
+
+		//if Par_send[i].Mek_104.Qds == 0 {
+		MeasuredValueFloatCP56Time2a(c, CauseOfTransmission{Cause: Spontaneous}, 1, Par_send[i].Mek_104)
+		//} else {
+		//	Par_send[i].Mek_104.Value = 0.1
+		//	Par_send[i].Mek_104.Qds = 0
+		//}
+	}
+}
+
+// Проверка параметров на изменение и запись новых в буфер со временем
+func Check_value() {
+	value := rand.Float32()
+	for i := 0; i < 4; i++ {
+		//	if value > Par_send[i].Mek_104.Value {
+		Par_send[i].Mek_104.Value = value
+		Par_send[i].Mek_104.Time = time.Now()
+		Par_send[i].Mek_104.Qds = 0
+		//	} else {
+		//		Par_send[i].Mek_104.Qds = 16
+		//	}
+		value = rand.Float32()
+
+	}
 }

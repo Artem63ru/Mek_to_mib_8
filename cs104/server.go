@@ -68,6 +68,7 @@ func (sf *Server) SetParams(p *asdu.Params) *Server {
 
 // ListenAndServer run the server
 func (sf *Server) ListenAndServer(addr string) {
+	var connect = false
 	listen, err := net.Listen("tcp", addr)
 	if err != nil {
 		sf.Error("server run failed, %v", err)
@@ -84,6 +85,18 @@ func (sf *Server) ListenAndServer(addr string) {
 		sf.Debug("server stop")
 	}()
 	sf.Debug("server run")
+	go func() {
+		for {
+			asdu.Check_value()
+			time.Sleep(time.Second * 3)
+			if connect {
+				sf.Debug("UpDate Value in connect")
+			} else {
+				sf.Debug("UpDate Value in no connection")
+			}
+
+		}
+	}()
 	for {
 		conn, err := listen.Accept()
 		if err != nil {
@@ -93,6 +106,7 @@ func (sf *Server) ListenAndServer(addr string) {
 
 		sf.wg.Add(1)
 		go func() {
+			connect = true
 			sess := &SrvSession{
 				config:   &sf.config,
 				params:   &sf.params,
@@ -115,6 +129,7 @@ func (sf *Server) ListenAndServer(addr string) {
 			delete(sf.sessions, sess)
 			sf.mux.Unlock()
 			sf.wg.Done()
+			connect = false
 		}()
 	}
 }
