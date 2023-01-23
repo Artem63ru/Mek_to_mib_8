@@ -17,7 +17,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	//"./asdu/asdu"
 )
 
 const (

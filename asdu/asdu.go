@@ -31,6 +31,7 @@ var (
 	ParamsWide = &Params{CauseSize: 2, CommonAddrSize: 2, InfoObjAddrSize: 3, InfoObjTimeZone: time.UTC}
 	// Массив параметров флоат для передачи параметров по МЭК 104.
 	Par_send = []BD_params_float{}
+	Buff     = [][]Buffer{}
 )
 
 // Params 定义了ASDU相关特定参数
@@ -69,6 +70,12 @@ type BD_params_float struct {
 	Mod_adress int
 	// Время последнего изменения - опционально
 	Uptime time.Time
+}
+
+// Буфер для хранения данных
+type Buffer struct {
+	// Запись о параметре
+	parameter []BD_params_float
 }
 
 // Valid returns the validation result of params.
@@ -417,13 +424,14 @@ func (sf *ASDU) Init_par() {
 // Спародическая передача параметров на верх
 func (sf *ASDU) Transfer(c Connect) {
 	for i := 0; i < 4; i++ {
-
-		//if Par_send[i].Mek_104.Qds == 0 {
 		MeasuredValueFloatCP56Time2a(c, CauseOfTransmission{Cause: Spontaneous}, 1, Par_send[i].Mek_104)
-		//} else {
-		//	Par_send[i].Mek_104.Value = 0.1
-		//	Par_send[i].Mek_104.Qds = 0
-		//}
+	}
+}
+
+// Буферная передача массива параметров на верх
+func Transfer_buff(c Connect, par []BD_params_float) {
+	for i := 0; i < 4; i++ {
+		MeasuredValueFloatCP56Time2a(c, CauseOfTransmission{Cause: Spontaneous}, 1, par[i].Mek_104)
 	}
 }
 
@@ -441,4 +449,20 @@ func Check_value() {
 		value = rand.Float32()
 
 	}
+}
+
+func buff() {
+
+	var val_par []BD_params_float
+	var i int = 0
+	for {
+		Check_value()
+		val_par = append(val_par, Par_send[0], Par_send[1], Par_send[2], Par_send[3])
+		Buff[0][i].parameter = val_par
+		time.Sleep(time.Second * 10)
+		i++
+	}
+
+	//}
+
 }
