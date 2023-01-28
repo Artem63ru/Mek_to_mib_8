@@ -1,11 +1,10 @@
 package main
 
 import (
-	"log"
-	"time"
-
 	"github.com/thinkgos/go-iecp5/asdu"
 	"github.com/thinkgos/go-iecp5/cs104"
+	"log"
+	"time"
 )
 
 var SRV cs104.Server
@@ -36,7 +35,7 @@ func (sf *mysrv) InterrogationHandler(c asdu.Connect, asduPack *asdu.ASDU, qoi a
 	log.Println("qoi", qoi)
 	asduPack.SendReplyMirror(c, asdu.ActivationCon)
 
-	go send_parad(sf, c, asduPack)
+	send_parad(sf, c, asduPack)
 
 	asduPack.SendReplyMirror(c, asdu.ActivationTerm)
 	return nil
@@ -49,24 +48,24 @@ func send_parad(sf *mysrv, c asdu.Connect, asduPack *asdu.ASDU) {
 	rt.Qds = 1
 	rt.Value = true
 
-	for {
-		for i := 0; i < 4; i++ {
-			asdu.MeasuredValueFloatCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, 1, asdu.Par_send[i].Mek_104)
-		}
-		err := asdu.Single(c, false, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, asduPack.CommonAddr, rt)
-		if err != nil {
-			log.Println("falied", err)
-		} else {
-			log.Println("success", err)
-		}
-		if rt.Value {
-			rt.Value = false
-		} else {
-			rt.Value = true
-		}
-		time.Sleep(time.Second * 1)
-
+	//for {
+	for i := 0; i < 4; i++ {
+		asdu.MeasuredValueFloatCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, 1, asdu.Par_send[i].Mek_104)
 	}
+	err := asdu.Single(c, false, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, asduPack.CommonAddr, rt)
+	if err != nil {
+		log.Println("falied", err)
+	} else {
+		log.Println("success", err)
+	}
+	if rt.Value {
+		rt.Value = false
+	} else {
+		rt.Value = true
+	}
+	//time.Sleep(time.Second * 1)
+
+	//}
 }
 
 func (sf *mysrv) CounterInterrogationHandler(asdu.Connect, *asdu.ASDU, asdu.QualifierCountCall) error {

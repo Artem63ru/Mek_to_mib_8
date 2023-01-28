@@ -7,8 +7,9 @@ package cs104
 import (
 	"context"
 	"crypto/tls"
+	"database/sql"
+	_ "database/sql"
 	_ "github.com/mattn/go-sqlite3"
-	//_ "github.com/jinzhu/gorm/dialects/mysql"
 	"github.com/thinkgos/go-iecp5/asdu"
 	"github.com/thinkgos/go-iecp5/clog"
 	"net"
@@ -20,6 +21,9 @@ import (
 // subclass 6.9, caption "Definition of time outs". However, then
 // of a second make this system much more responsive i.c.w. S-frames.
 const timeoutResolution = 100 * time.Millisecond
+
+// Путь к БД
+const dbpath = "test.db"
 
 // Server the common server
 type Server struct {
@@ -34,6 +38,15 @@ type Server struct {
 	connectionLost func(asdu.Connect)
 	clog.Clog
 	wg sync.WaitGroup
+}
+
+// Структура таблицы БД SQLite
+type Paramerts struct {
+	Id     string
+	Addres int       //Адресс в АСДУ
+	Value  float32   //Значение
+	QDS    int       //Качество
+	Date   time.Time //Метка времени
 }
 
 // NewServer new a server, default config and default asdu.ParamsWide params
@@ -69,7 +82,7 @@ func (sf *Server) SetParams(p *asdu.Params) *Server {
 
 // ListenAndServer run the server
 func (sf *Server) ListenAndServer(addr string) {
-	var connect = false
+	//var connect = false
 	listen, err := net.Listen("tcp", addr)
 	if err != nil {
 		sf.Error("server run failed, %v", err)
@@ -86,30 +99,35 @@ func (sf *Server) ListenAndServer(addr string) {
 		sf.Debug("server stop")
 	}()
 	sf.Debug("server run")
-	go func() {
-		var val_par [][]asdu.BD_params_float
-		for {
-			asdu.Check_value()
-			time.Sleep(time.Second * 1)
-			if connect {
-				sf.Debug("UpDate Value in connect")
-				if len(val_par) > 0 {
-					for i := 0; i < len(val_par); i++ {
-						asdu.Transfer_buff(sf, val_par[i])
-						//time.Sleep(time.Second * 1)
-					}
-					val_par = nil
-				}
-			} else {
-				sf.Debug("UpDate Value in no connection")
-				par := []asdu.BD_params_float{asdu.Par_send[0], asdu.Par_send[1], asdu.Par_send[2], asdu.Par_send[3]}
-				val_par = append(val_par, par)
-				time.Sleep(time.Second * 5)
+	// Работа с БД
+	//db := InitDB(dbpath)
+	//defer db.Close()
 
-			}
-
-		}
-	}()
+	//go func() {
+	//	var val_par [][]asdu.BD_params_float
+	//	for {
+	//		asdu.Check_value()
+	//		time.Sleep(time.Second * 1)
+	//		if connect {
+	//			sf.Debug("UpDate Value in connect")
+	//			if len(val_par) > 0 {
+	//				for i := 0; i < len(val_par); i++ {
+	//					asdu.Transfer_buff(sf, val_par[i])
+	//					//time.Sleep(time.Second * 1)
+	//				}
+	//				val_par = nil
+	//			}
+	//		} else {
+	//			sf.Debug("UpDate Value in no connection")
+	//
+	//			par := []asdu.BD_params_float{asdu.Par_send[0], asdu.Par_send[1], asdu.Par_send[2], asdu.Par_send[3]}
+	//			val_par = append(val_par, par)
+	//			time.Sleep(time.Second * 5)
+	//
+	//		}
+	//
+	//	}
+	//}()
 	for {
 		conn, err := listen.Accept()
 		if err != nil {
@@ -119,7 +137,7 @@ func (sf *Server) ListenAndServer(addr string) {
 
 		sf.wg.Add(1)
 		go func() {
-			connect = true
+			//	connect = true
 			sess := &SrvSession{
 				config:   &sf.config,
 				params:   &sf.params,
@@ -143,7 +161,7 @@ func (sf *Server) ListenAndServer(addr string) {
 			delete(sf.sessions, sess)
 			sf.mux.Unlock()
 			sf.wg.Done()
-			connect = false
+			//connect = false
 		}()
 	}
 }
@@ -191,4 +209,28 @@ func (sf *Server) SetOnConnectionHandler(f func(asdu.Connect)) {
 // SetConnectionLostHandler set connect lost handler
 func (sf *Server) SetConnectionLostHandler(f func(asdu.Connect)) {
 	sf.connectionLost = f
+}
+
+// Инициализация подключения к БД
+func InitDB(filepath string) *sql.DB {
+	db, err := sql.Open("sqlite3", filepath)
+	if err != nil {
+		panic(err)
+	}
+	if db == nil {
+		panic("db nil")
+	}
+	return db
+}
+
+// Запись данных в БД
+func StoreItem(db *sql.DB, items Paramerts) {
+
+	_, err := db.Exec("insert into params (Addres, QDS, date, Value) values ($1, $2, $3, $4)",
+		items.Addres, items.QDS, items.Date.String(), items.Value)
+	if err != nil {
+		panic(err)
+	}
+	return
+
 }

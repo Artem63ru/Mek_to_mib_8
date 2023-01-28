@@ -195,7 +195,7 @@ func (sf *SrvSession) run(ctx context.Context) {
 	sendUFrame := func(which byte) {
 		sf.Debug("TX uFrame %v", uAPCI{which})
 		sf.sendRaw <- newUFrame(which)
-		asduPack.Transfer(sf)
+		asduPack.Transfer(sf) // спародическая передача на верх
 	}
 
 	sendIFrame := func(asdu1 []byte) {
@@ -225,7 +225,7 @@ func (sf *SrvSession) run(ctx context.Context) {
 		}
 		sf.Debug("run stopped!")
 	}()
-	//	go sf.send_parad(sf, asduPack)
+	//go sf.send_parad(sf, asduPack)
 
 	for {
 		if isActive && seqNoCount(sf.ackNoSend, sf.seqNoSend) <= sf.config.SendUnAckLimitK {
