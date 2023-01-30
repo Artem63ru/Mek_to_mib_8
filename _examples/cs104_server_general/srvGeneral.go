@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/thinkgos/go-iecp5/asdu"
-	"github.com/thinkgos/go-iecp5/cs104"
+	"MEK104/asdu"
+	"MEK104/cs104"
 	"log"
 	"time"
 )
@@ -36,8 +36,8 @@ func (sf *mysrv) InterrogationHandler(c asdu.Connect, asduPack *asdu.ASDU, qoi a
 	asduPack.SendReplyMirror(c, asdu.ActivationCon)
 
 	send_parad(sf, c, asduPack)
-
-	asduPack.SendReplyMirror(c, asdu.ActivationTerm)
+	time.Sleep(time.Second * 1)
+	//asduPack.SendReplyMirror(c, asdu.ActivationTerm)
 	return nil
 }
 
@@ -49,8 +49,11 @@ func send_parad(sf *mysrv, c asdu.Connect, asduPack *asdu.ASDU) {
 	rt.Value = true
 
 	//for {
-	for i := 0; i < 4; i++ {
-		asdu.MeasuredValueFloatCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, 1, asdu.Par_send[i].Mek_104)
+	for i := 0; i < cs104.Count_Anpar; i++ {
+		asdu.MeasuredValueFloatCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, 1, cs104.Buff[i].Mek_104)
+	}
+	for i := 0; i < cs104.Count_DIpar; i++ {
+		asdu.SingleCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, asduPack.CommonAddr, cs104.Buff_D[i].Mek_104)
 	}
 	err := asdu.Single(c, false, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, asduPack.CommonAddr, rt)
 	if err != nil {
@@ -72,10 +75,14 @@ func (sf *mysrv) CounterInterrogationHandler(asdu.Connect, *asdu.ASDU, asdu.Qual
 	return nil
 }
 func (sf *mysrv) ReadHandler(c asdu.Connect, asdu1 *asdu.ASDU, io asdu.InfoObjAddr) error {
-	for i := 0; i < 4; i++ {
-		if asdu.Par_send[i].Mek_104.Ioa == io {
-			asdu.MeasuredValueFloatCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Request}, 1, asdu.Par_send[i].Mek_104)
+	for i := 0; i < cs104.Count_Anpar; i++ {
+		if cs104.Buff[i].Mek_104.Ioa == io {
+			asdu.MeasuredValueFloatCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Request}, 1, cs104.Buff[i].Mek_104)
 		}
+		if cs104.Buff_D[i].Mek_104.Ioa == io {
+			asdu.SingleCP24Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Request}, 1, cs104.Buff_D[i].Mek_104)
+		}
+
 	}
 	return nil
 }

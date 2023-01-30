@@ -5,10 +5,10 @@
 package cs104
 
 import (
+	"MEK104/asdu"
+	"MEK104/clog"
 	"context"
 	"fmt"
-	"github.com/thinkgos/go-iecp5/asdu"
-	"github.com/thinkgos/go-iecp5/clog"
 	"io"
 	"log"
 	"math/rand"
@@ -167,11 +167,11 @@ func (sf *SrvSession) run(ctx context.Context) {
 	go sf.recvLoop()
 	go sf.sendLoop()
 	go sf.handlerLoop()
-	Par := &asdu.Params{CauseSize: 2, CommonAddrSize: 2, InfoObjAddrSize: 3, InfoObjTimeZone: time.UTC}
-	vari := asdu.VariableStruct{Number: 1, IsSequence: false}
-	coa := asdu.CauseOfTransmission{Cause: 3, IsTest: false, IsNegative: false}
-	id := asdu.Identifier{Type: 1, Variable: vari, Coa: coa, OrigAddr: 1, CommonAddr: 1}
-	asduPack := asdu.NewASDU(Par, id)
+	//Par := &asdu.Params{CauseSize: 2, CommonAddrSize: 2, InfoObjAddrSize: 3, InfoObjTimeZone: time.UTC}
+	//vari := asdu.VariableStruct{Number: 1, IsSequence: false}
+	//coa := asdu.CauseOfTransmission{Cause: 3, IsTest: false, IsNegative: false}
+	//id := asdu.Identifier{Type: 1, Variable: vari, Coa: coa, OrigAddr: 1, CommonAddr: 1}
+	//asduPack := asdu.NewASDU(Par, id)
 	//asduPack := asdu.NewEmptyASDU(asdu.ParamsWide)
 
 	// default: STOPDT, when connected establish and not enable "data transfer" yet
@@ -195,7 +195,7 @@ func (sf *SrvSession) run(ctx context.Context) {
 	sendUFrame := func(which byte) {
 		sf.Debug("TX uFrame %v", uAPCI{which})
 		sf.sendRaw <- newUFrame(which)
-		asduPack.Transfer(sf) // спародическая передача на верх
+		//	asduPack.Transfer(sf) // спародическая передача на верх
 	}
 
 	sendIFrame := func(asdu1 []byte) {
@@ -332,6 +332,7 @@ func (sf *SrvSession) run(ctx context.Context) {
 				}
 			}
 		}
+
 	}
 }
 

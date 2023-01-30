@@ -5,14 +5,19 @@
 package cs104
 
 import (
+	"MEK104/asdu"
+	"MEK104/clog"
+	modbus_mk "MEK104/modbus"
 	"context"
 	"crypto/tls"
 	"database/sql"
 	_ "database/sql"
+	"fmt"
+	"github.com/BurntSushi/toml"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/thinkgos/go-iecp5/asdu"
-	"github.com/thinkgos/go-iecp5/clog"
+	"log"
 	"net"
+	"os"
 	"sync"
 	"time"
 )
@@ -21,6 +26,14 @@ import (
 // subclass 6.9, caption "Definition of time outs". However, then
 // of a second make this system much more responsive i.c.w. S-frames.
 const timeoutResolution = 100 * time.Millisecond
+
+var ConfigT TomlConfig               // структура конфигуратора
+var Log *log.Logger                  // это логер для записи
+var Buff [100]asdu.BD_params_float   // массив параметров
+var Buff_D [100]asdu.BD_params_singl // массив параметров
+var Count_Anpar int
+var Count_DIpar int
+var Count_DOpar int
 
 // Путь к БД
 const dbpath = "test.db"
@@ -47,6 +60,111 @@ type Paramerts struct {
 	Value  float32   //Значение
 	QDS    int       //Качество
 	Date   time.Time //Метка времени
+}
+
+// структура конфигурации
+type TomlConfig struct {
+	Version          string       // версия
+	Upport_tcp       uint16       // порт для запросов верзнего уровня
+	Local_port       uint16       // локальный порт для работы с управляющей программой
+	Tty_serial       []Set_serial // миссив настроек для устройств по tty
+	Tcp_serial       []Set_tcp    // массив каналов по TCP
+	Count_tty_serial int          // количество используемых каналов tty
+	Count_tcp_serial int          // еолизество используемых каналов tcp
+}
+
+// описание канала ро TCP
+type Set_tcp struct {
+	Ip         string // IP адрес канала
+	Port       int    // порт для реализации сервера
+	Count_node uint   // количество устройств на порту
+	Set_node   []Node // это массив нод
+	Time_loop  uint   // время цикла опроса master между нодами
+}
+
+// описание ноды на канале TCP
+type Node struct {
+	Address_id   uint8  // адрес на шине
+	Enable       bool   // включено устройство в опрос или нет
+	Command      uint8  // обрабатываемая комманда опроса
+	Address_data uint16 // адрес начала данных с ноде
+	Data_length  uint16 // длинна данных
+	Index_up     uint   // позиция данных с ноды в на глобальной карте параметров
+	Type_par     uint   // Тип параметра получаемого от такт-у 1-AI, 2-DI
+	// изменяется во время опроса по ответу-неответу от устройства - делать не здесь, а в статусе
+	//	Time   time.Time // время последнего опроса
+	//	Status uint8     // статус опроса устройства
+
+}
+
+// настройки канала для всех нод однотипные
+type Set_serial struct {
+	Port_tty string // последовательный порт
+	Baud     uint   // скорость обменеа
+	Stop     uint8  // количество стопов
+	Bits     uint8  // количество бит
+	Parity   string // паритет "N"-нет,"E"-event,"O"-odd
+	Slave    bool   // канал slave: true - slave - выдача запросов из макипоранныой катру параметров
+	// если true - то параметры ниже не работают
+	Count_node uint   // количество устройств на порту
+	Set_node   []Node // это массив нод
+	Time_loop  uint   // время цикла опроса master между нодами
+}
+
+// ***************************************************************************************
+// проверка на корректность прараметров конфигурации, считанной из toml файла
+// возвращает true, если успешно
+func config_control() bool {
+
+	return true
+}
+
+// создание переменных
+func Ser_Init(path string) {
+	Count_Anpar = 0
+	Count_DOpar = 0
+	Count_DIpar = 0
+	// далее обработка toml файла конфигурации
+	_, errt := toml.DecodeFile(path, &ConfigT)
+	if errt != nil {
+		Log.Println("Eror load *.toml file")
+		Log.Println(errt)
+		os.Exit(-1)
+	}
+
+	fmt.Printf("version toml: %s\n", ConfigT.Version)
+	for i := 0; i < ConfigT.Count_tcp_serial; i++ {
+		for y := 0; y < int(ConfigT.Tcp_serial[i].Count_node); y++ {
+			_type := ConfigT.Tcp_serial[i].Set_node[y].Type_par
+			switch _type {
+			case 1:
+				Count_Anpar = Count_Anpar + int(ConfigT.Tcp_serial[i].Set_node[y].Data_length) // количество аналогов
+				indx := ConfigT.Tcp_serial[i].Set_node[y].Index_up                             // стартовый индекс
+				addr := ConfigT.Tcp_serial[i].Set_node[y].Address_data                         // адрес в МК такта
+				for x := Count_Anpar - int(ConfigT.Tcp_serial[i].Set_node[y].Data_length); x < Count_Anpar; x++ {
+					Buff[x].Mek_104.Ioa = asdu.InfoObjAddr(int(indx) + x + 30000) // делаем адресацию как в модбасе инпутрегистры
+					Buff[x].Mod_adress = int(addr) + x                            // адрес модбаса в МК
+					Buff[x].ID = int(indx) + x                                    // номер параметр в массиве
+				}
+			case 2:
+				Count_DIpar = Count_DIpar + 16                         // количество дискретов
+				indx := ConfigT.Tcp_serial[i].Set_node[y].Index_up     // стартовый индекс
+				addr := ConfigT.Tcp_serial[i].Set_node[y].Address_data // адрес в МК такта
+				for x := Count_DIpar - 16; x < Count_DIpar; x++ {
+					Buff_D[x].Mek_104.Ioa = asdu.InfoObjAddr(int(indx) + x + 10000) // делаем адресацию как в модбасе инпутрегистры
+					Buff_D[x].Mod_adress = int(addr) + x                            // адрес модбаса в МК
+					Buff_D[x].ID = int(indx) + x                                    // номер параметр в массиве
+				}
+			case 3:
+				Count_DOpar = Count_DOpar + int(ConfigT.Tcp_serial[i].Set_node[y].Data_length)
+			}
+
+		}
+	}
+	fmt.Printf("Количество Аналогов в настройках : %d\n", Count_Anpar)
+	fmt.Printf("Количество Дискретов в настройках : %d\n", Count_DIpar)
+	return
+
 }
 
 // NewServer new a server, default config and default asdu.ParamsWide params
@@ -80,9 +198,29 @@ func (sf *Server) SetParams(p *asdu.Params) *Server {
 	return sf
 }
 
+// Перевод из Модбаса в МЭК - на уровне буферов
+func read_mod() {
+	for {
+		for i := 0; i < Count_Anpar; i++ {
+			Buff[i].Mek_104.Value = modbus_mk.Buff[i].Val
+			Buff[i].Mek_104.Time = time.Now()
+			//	fmt.Println("Номер линии", i, "  -  ", Buff[i].Mek_104.Value)
+		}
+		for i := 0; i < Count_DIpar; i++ {
+			Buff_D[i].Mek_104.Value = modbus_mk.Buff_D[i].Val
+			Buff_D[i].Mek_104.Time = time.Now()
+			//	fmt.Println("Номер линии дискрета", i, "  -  ", Buff_D[i].Mek_104.Value)
+		}
+		time.Sleep(time.Millisecond * 1000)
+
+	}
+
+}
+
 // ListenAndServer run the server
 func (sf *Server) ListenAndServer(addr string) {
 	//var connect = false
+	Ser_Init("config.toml")
 	listen, err := net.Listen("tcp", addr)
 	if err != nil {
 		sf.Error("server run failed, %v", err)
@@ -99,6 +237,14 @@ func (sf *Server) ListenAndServer(addr string) {
 		sf.Debug("server stop")
 	}()
 	sf.Debug("server run")
+
+	//Инициализация сервера МЭК104 переменных
+	//asdu.Par_send = Ser_Init("config.toml")
+
+	go modbus_mk.Modbus_up()
+	time.Sleep(time.Millisecond * 5000)
+	go read_mod()
+	//	Buff[0].Mek_104.Value = modbus_mk.Buff[0].Val
 	// Работа с БД
 	//db := InitDB(dbpath)
 	//defer db.Close()
