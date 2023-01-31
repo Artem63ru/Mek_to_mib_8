@@ -70,6 +70,8 @@ type BD_params_float struct {
 	Mod_adress int
 	// Время последнего изменения - опционально
 	Uptime time.Time
+	// Флаг изменения сигнала для спародической передачи
+	Up_Val bool
 }
 
 // Описание структуры набора дискретных параметров для обмена
@@ -84,6 +86,8 @@ type BD_params_singl struct {
 	Mod_adress int
 	// Время последнего изменения - опционально
 	Uptime time.Time
+	// Флаг изменения сигнала для спародической передачи
+	Up_Val bool
 }
 
 // Буфер для хранения данных
@@ -206,7 +210,7 @@ func (sf *ASDU) Reply(c Cause, addr CommonAddr) *ASDU {
 func (sf *ASDU) SendReplyMirror(c Connect, cause Cause) error {
 	r := NewASDU(sf.Params, sf.Identifier)
 	r.Coa.Cause = cause
-	//sf.AppendInfoObjAddr(0)
+	r.infoObj = append(r.infoObj, 0, 0, 0)
 	r.infoObj = append(r.infoObj, sf.infoObj...)
 	return c.Send(r)
 }
@@ -237,56 +241,6 @@ func (sf *ASDU) SendReply_M_ME_NB_1(c Connect, cause Cause) error {
 	r.infoObj = append(r.infoObj, sf.infoObj...)
 	return c.Send(r)
 }
-
-//// String returns a full description.
-//func (u *ASDU) String() string {
-//	dataSize, err := GetInfoObjSize(u.Type)
-//	if err != nil {
-//		if !u.InfoSeq {
-//			return fmt.Sprintf("%s: %#x", u.Identifier, u.infoObj)
-//		}
-//		return fmt.Sprintf("%s seq: %#x", u.Identifier, u.infoObj)
-//	}
-//
-//	end := len(u.infoObj)
-//	addrSize := u.InfoObjAddrSize
-//	if end < addrSize {
-//		if !u.InfoSeq {
-//			return fmt.Sprintf("%s: %#x <EOF>", u.Identifier, u.infoObj)
-//		}
-//		return fmt.Sprintf("%s seq: %#x <EOF>", u.Identifier, u.infoObj)
-//	}
-//	addr := u.ParseInfoObjAddr(u.infoObj)
-//
-//	buf := bytes.NewBufferString(u.Identifier.String())
-//
-//	for i := addrSize; ; {
-//		start := i
-//		i += dataSize
-//		if i > end {
-//			fmt.Fprintf(buf, " %d:%#x <EOF>", addr, u.infoObj[start:])
-//			break
-//		}
-//		fmt.Fprintf(buf, " %d:%#x", addr, u.infoObj[start:i])
-//		if i == end {
-//			break
-//		}
-//
-//		if u.InfoSeq {
-//			addr++
-//		} else {
-//			start = i
-//			i += addrSize
-//			if i > end {
-//				fmt.Fprintf(buf, " %#x <EOF>", u.infoObj[start:i])
-//				break
-//			}
-//			addr = u.ParseInfoObjAddr(u.infoObj[start:])
-//		}
-//	}
-//
-//	return buf.String()
-//}
 
 // MarshalBinary honors the encoding.BinaryMarshaler interface.
 func (sf *ASDU) MarshalBinary() (data []byte, err error) {
@@ -326,32 +280,6 @@ func (sf *ASDU) MarshalBinary() (data []byte, err error) {
 		offset++
 		raw[offset] = byte(sf.CommonAddr >> 8)
 	}
-	//offset++
-	//if len(sf.infoObj) > 1 {
-	//	raw[offset] = sf.infoObj[0]
-	//	offset++
-	//	raw[offset] = sf.infoObj[0] >> 8
-	//	offset++
-	//	raw[offset] = sf.infoObj[0] >> 8
-	//	offset++
-	//	raw[offset] = sf.infoObj[1]
-	//} else {
-	//	raw[offset] = 0
-	//	offset++
-	//	raw[offset] = 0
-	//	offset++
-	//	raw[offset] = 0
-	//	offset++
-	//	raw[offset] = sf.infoObj[0]
-	//}
-
-	//
-	//if sf.Coa.Cause == 20 {
-	//	raw[6] = 0
-	//	raw[7] = 10
-	//	raw[8] = 0
-	//	raw[9] = 1
-	//}
 
 	return raw, nil
 }
@@ -427,7 +355,7 @@ func (sf *ASDU) Init_par() {
 		vale.Qds = 0
 		vale.Value = float32(0)
 		vale.Time = time.Now()
-		bd := BD_params_float{1 + i, "Наименование 1", vale, 101 + i, time.Now()}
+		bd := BD_params_float{1 + i, "Наименование 1", vale, 101 + i, time.Now(), false}
 		Par_send = append(Par_send, bd)
 	}
 	//if Par_send == nil:

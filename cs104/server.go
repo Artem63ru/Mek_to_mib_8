@@ -202,17 +202,20 @@ func (sf *Server) SetParams(p *asdu.Params) *Server {
 func read_mod() {
 	for {
 		for i := 0; i < Count_Anpar; i++ {
-			Buff[i].Mek_104.Value = modbus_mk.Buff[i].Val
-			Buff[i].Mek_104.Time = time.Now()
-			//	fmt.Println("Номер линии", i, "  -  ", Buff[i].Mek_104.Value)
+			if Buff[i].Mek_104.Value != modbus_mk.Buff[i].Val {
+				Buff[i].Mek_104.Value = modbus_mk.Buff[i].Val
+				Buff[i].Mek_104.Time = time.Now()
+				Buff[i].Up_Val = true
+			}
 		}
 		for i := 0; i < Count_DIpar; i++ {
-			Buff_D[i].Mek_104.Value = modbus_mk.Buff_D[i].Val
-			Buff_D[i].Mek_104.Time = time.Now()
-			//	fmt.Println("Номер линии дискрета", i, "  -  ", Buff_D[i].Mek_104.Value)
+			if Buff_D[i].Mek_104.Value != modbus_mk.Buff_D[i].Val {
+				Buff_D[i].Mek_104.Value = modbus_mk.Buff_D[i].Val
+				Buff_D[i].Mek_104.Time = time.Now()
+				Buff_D[i].Up_Val = true
+			}
 		}
-		time.Sleep(time.Millisecond * 1000)
-
+		time.Sleep(time.Millisecond * 500)
 	}
 
 }

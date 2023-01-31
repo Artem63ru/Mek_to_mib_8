@@ -35,13 +35,13 @@ func (sf *mysrv) InterrogationHandler(c asdu.Connect, asduPack *asdu.ASDU, qoi a
 	log.Println("qoi", qoi)
 	asduPack.SendReplyMirror(c, asdu.ActivationCon)
 
-	send_parad(sf, c, asduPack)
-	time.Sleep(time.Second * 1)
-	//asduPack.SendReplyMirror(c, asdu.ActivationTerm)
+	send_100(sf, c, asduPack)
+	//time.Sleep(time.Second * 1)
+	asduPack.SendReplyMirror(c, asdu.ActivationTerm)
 	return nil
 }
 
-func send_parad(sf *mysrv, c asdu.Connect, asduPack *asdu.ASDU) {
+func send_100(sf *mysrv, c asdu.Connect, asduPack *asdu.ASDU) {
 	var rt asdu.SinglePointInfo
 	rt.Ioa = 200
 	rt.Time = time.Now()
@@ -53,9 +53,9 @@ func send_parad(sf *mysrv, c asdu.Connect, asduPack *asdu.ASDU) {
 		asdu.MeasuredValueFloatCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, 1, cs104.Buff[i].Mek_104)
 	}
 	for i := 0; i < cs104.Count_DIpar; i++ {
-		asdu.SingleCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, asduPack.CommonAddr, cs104.Buff_D[i].Mek_104)
+		asdu.SingleCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, 1, cs104.Buff_D[i].Mek_104)
 	}
-	err := asdu.Single(c, false, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, asduPack.CommonAddr, rt)
+	err := asdu.Single(c, false, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, 1, rt)
 	if err != nil {
 		log.Println("falied", err)
 	} else {
