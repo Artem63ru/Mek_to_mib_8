@@ -18,6 +18,7 @@ type ServerHandlerInterface interface {
 	ClockSyncHandler(asdu.Connect, *asdu.ASDU, time.Time) error
 	ResetProcessHandler(asdu.Connect, *asdu.ASDU, asdu.QualifierOfResetProcessCmd) error
 	DelayAcquisitionHandler(asdu.Connect, *asdu.ASDU, uint16) error
+	Comand_C_SC_NA1(asdu.Connect, *asdu.ASDU) error
 	ASDUHandler(asdu.Connect, *asdu.ASDU) error
 }
 

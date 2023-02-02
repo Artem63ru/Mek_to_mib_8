@@ -7,8 +7,8 @@ import (
 
 	_ "net/http/pprof"
 
-	"github.com/thinkgos/go-iecp5/asdu"
-	"github.com/thinkgos/go-iecp5/cs104"
+	"MEK104/asdu"
+	"MEK104/cs104"
 )
 
 func main() {

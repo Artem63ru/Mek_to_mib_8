@@ -31,6 +31,7 @@ var ConfigT TomlConfig               // структура конфигурат�
 var Log *log.Logger                  // это логер для записи
 var Buff [100]asdu.BD_params_float   // массив параметров
 var Buff_D [100]asdu.BD_params_singl // массив параметров
+var Buff_KR [100]asdu.BD_params_KR   // массив параметров кранов
 var Count_Anpar int
 var Count_DIpar int
 var Count_DOpar int
@@ -145,6 +146,8 @@ func Ser_Init(path string) {
 					Buff[x].Mek_104.Ioa = asdu.InfoObjAddr(int(indx) + x + 30000) // делаем адресацию как в модбасе инпутрегистры
 					Buff[x].Mod_adress = int(addr) + x                            // адрес модбаса в МК
 					Buff[x].ID = int(indx) + x                                    // номер параметр в массиве
+					Buff[x].Mek_104.Time = time.Now()                             //
+
 				}
 			case 2:
 				Count_DIpar = Count_DIpar + 16                         // количество дискретов
@@ -153,16 +156,31 @@ func Ser_Init(path string) {
 				for x := Count_DIpar - 16; x < Count_DIpar; x++ {
 					Buff_D[x].Mek_104.Ioa = asdu.InfoObjAddr(int(indx) + x + 10000) // делаем адресацию как в модбасе инпутрегистры
 					Buff_D[x].Mod_adress = int(addr) + x                            // адрес модбаса в МК
-					Buff_D[x].ID = int(indx) + x                                    // номер параметр в массиве
+					Buff_D[x].ID = int(indx) + x
+					Buff_D[x].Mek_104.Time = time.Now() // номер параметр в массиве
 				}
 			case 3:
-				Count_DOpar = Count_DOpar + int(ConfigT.Tcp_serial[i].Set_node[y].Data_length)
+				indx := ConfigT.Tcp_serial[i].Set_node[y].Index_up     // стартовый индекс
+				addr := ConfigT.Tcp_serial[i].Set_node[y].Address_data // адрес в МК такта
+				// Команда открыть
+				Buff_KR[Count_DOpar].Mek_104.Ioa = asdu.InfoObjAddr(int(indx)) // делаем адресацию как в модбасе инпутрегистры
+				Buff_D[Count_DOpar].Mod_adress = int(addr)                     // адрес модбаса в МК
+				Buff_D[Count_DOpar].ID = int(indx)
+				Buff_D[Count_DOpar].Mek_104.Time = time.Now() // номер параметр в массиве
+				// команда закрыть
+				Count_DOpar = Count_DOpar + 1
+				Buff_KR[Count_DOpar].Mek_104.Ioa = asdu.InfoObjAddr(int(indx) + 1) // делаем адресацию как в модбасе инпутрегистры
+				Buff_D[Count_DOpar].Mod_adress = int(addr)                         // адрес модбаса в МК
+				Buff_D[Count_DOpar].ID = int(indx) + 1
+				Buff_D[Count_DOpar].Mek_104.Time = time.Now() // номер параметр в массиве
+				Count_DOpar = Count_DOpar + 1
 			}
 
 		}
 	}
 	fmt.Printf("Количество Аналогов в настройках : %d\n", Count_Anpar)
 	fmt.Printf("Количество Дискретов в настройках : %d\n", Count_DIpar)
+	fmt.Printf("Количество Кранов в настройках : %d\n", Count_DOpar)
 	return
 
 }
@@ -214,6 +232,15 @@ func read_mod() {
 				Buff_D[i].Mek_104.Time = time.Now()
 				Buff_D[i].Up_Val = true
 			}
+		}
+		for i := 0; i < Count_DOpar; i++ {
+			modbus_mk.Buff_KR[i].KR_sel = Buff_KR[i].Mek_104.Qoc.InSelect
+			modbus_mk.Buff_KR[i].CMD = Buff_KR[i].Mek_104.Value
+			if Buff_KR[i].Up_Val {
+				modbus_mk.Buff_KR[i].Send_cancel = Buff_KR[i].Up_Val
+			}
+			Buff_KR[i].Up_Val = false
+			Buff_KR[i].Mek_104.Value = false
 		}
 		time.Sleep(time.Millisecond * 500)
 	}

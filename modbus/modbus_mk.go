@@ -30,6 +30,8 @@ var Count_DIpar int                            // количество диск�
 var Count_DOpar int                            // количество управления
 var Buff = make([]Bufer, 100)                  // буфер аналогов
 var Buff_D = make([]Bufer_D, 100)              // дискретов дискретов
+var Buff_KR = make([]Bufer_KR, 100)            // дискретов дискретов
+var Bufer_DO []byte                            // Регистр хранения значений выходных сигналов ДО
 
 /*
 Версии:
@@ -166,6 +168,13 @@ type Bufer struct {
 type Bufer_D struct {
 	ID  int
 	Val bool
+}
+
+// Структура буфера для управления каранами для передачи в МЭК
+type Bufer_KR struct {
+	KR_sel      bool
+	Send_cancel bool
+	CMD         bool
 }
 
 // ***************************************************************************************
@@ -602,22 +611,20 @@ func req_tcp_serial(chanel *Set_tcp, cc <-chan struct{}, inc <-chan inc_req, arr
 	} else {
 
 		client := modbus.NewClient(handler)
-		Buff = make([]Bufer, Count_Anpar)     // для передачи наверх виден из модуля cp104
-		Buff_D = make([]Bufer_D, Count_DIpar) // для передачи наверх виден из модуля cp104
+		Buff := make([]Bufer, Count_Anpar)     // для передачи наверх виден из модуля cp104
+		Buff_D := make([]Bufer_D, Count_DIpar) // для передачи наверх виден из модуля cp104
+		//	Buff_KR := make([]Bufer_KR, Count_DOpar) // для передачи наверх виден из модуля cp104
 		//var array = make([]Bufer, Count_Anpar)     // временный буфер для аналогов
 		var array []Bufer     // временный буфер для аналогов
 		var array_d []Bufer_D // временный буфер для дискретов
-		//var coun int
+		//var array_kr []Bufer_KR // временный буфер для дискретов
+
 		for {
 
 			// пока обработка только одной ноды оз конфигурации
 			for count := 0; count < int(chanel.Count_node); count++ {
 				if handler.SlaveId != chanel.Set_node[count].Address_id {
-					// надо опробывать без закрытия handler
-					//				handler.Close()
 					handler.SlaveId = chanel.Set_node[count].Address_id
-					//				handler.Connect()
-					//				defer handler.Close()
 					client = modbus.NewClient(handler) // перезапустим клиента
 				}
 				switch chanel.Set_node[count].Command {
@@ -751,53 +758,54 @@ func req_tcp_serial(chanel *Set_tcp, cc <-chan struct{}, inc <-chan inc_req, arr
 					}
 				case 05: // Write Single Coils
 					if handler.SlaveId != 1 {
-						//						handler.Close()
 						handler.SlaveId = 1
-						//						handler.Connect()
-						//						defer handler.Close()
 						client = modbus.NewClient(handler) // перезапустим клиента
 					}
-					//			server.Coils[chanel.Set_node[count].Index_up] = server.Coils[chanel.Set_node[count].Index_up]
 					for ii := 0; ii < int(chanel.Set_node[count].Data_length); ii++ {
 						// Если пришла команда закрытия и есть сеанс
-						var Seans_KR_OFF bool //= 0 // server.Coils[int(chanel.Set_node[count].Index_up)+ii] == 0 && kr.TU == 1 && !(server.DiscreteInputs[int(chanel.Set_node[count-1].Index_up)+4] == 1) // Если пришла команда закрытия и есть сеанс
-						var Seans_KR_ON bool  //=1 // server.Coils[int(chanel.Set_node[count].Index_up)+ii] == 0 && kr.TU == 2 && !(server.DiscreteInputs[int(chanel.Set_node[count-1].Index_up)+5] == 1)  // Если пришла команда открытия и есть сеанс
-						if Seans_KR_OFF {
-							result4, err3 := client.ReadHoldingRegisters(uint16(36), uint16(1)) // Вычитываем что в регистре управления DO
+						//var Seans_KR_OFF bool //= 0 // server.Coils[int(chanel.Set_node[count].Index_up)+ii] == 0 && kr.TU == 1 && !(server.DiscreteInputs[int(chanel.Set_node[count-1].Index_up)+4] == 1) // Если пришла команда закрытия и есть сеанс
+						//var Seans_KR_ON bool  //=1 // server.Coils[int(chanel.Set_node[count].Index_up)+ii] == 0 && kr.TU == 2 && !(server.DiscreteInputs[int(chanel.Set_node[count-1].Index_up)+5] == 1)  // Если пришла команда открытия и есть сеанс
+						if Buff_KR[ii].KR_sel && Buff_KR[ii].CMD { // исполняем команду
+							result4, err3 := client.ReadHoldingRegisters(uint16(20), uint16(1)) // Вычитываем что в регистре управления DO
 							err_log(err3, result4)
-							if kr.pred != 2 { // Если отмена
-								result5, err3 := client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), binary.LittleEndian.Uint16(result4)|uint16(00000001<<1))
-								err_log(err3, result5)
-							} else {
-								result5, err3 := client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), binary.LittleEndian.Uint16(result4)^uint16(00000001<<1))
-								err_log(err3, result5)
-							}
-						} else { // Если пришла команда открытия и есть сеанс
-							if Seans_KR_ON {
-								result4, err3 := client.ReadHoldingRegisters(uint16(36), uint16(1)) // Вычитываем что в регистре управления DO
-								err_log(err3, result4)
-								if kr.pred != 2 { // Если отмена
-									result5, err3 := client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), uint16(binary.LittleEndian.Uint16(result4)|uint16(00000001<<2)))
-									err_log(err3, result5)
-									//if timer1.Stop() {
-									//	timer1 := time.NewTimer(10 * time.Second)
-									//	<-timer1.C
-									//	fmt.Printf("\t>>>>> Отработал таймер 10 сек: %v\r\n", timer1)
-									//}
-
-								} else {
-									result5, err3 := client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), uint16(binary.LittleEndian.Uint16(result4)^uint16(00000001<<2)))
-									err_log(err3, result5)
-								}
-							}
-							// Если сеанс закрыли сбрасываем в 00
-							if !Seans_KR_ON && !Seans_KR_OFF {
-								result4, err3 := client.ReadHoldingRegisters(uint16(36), uint16(1)) // Вычитываем что в регистре управления DO
-								err_log(err3, result4)
-								client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), uint16(binary.LittleEndian.Uint16(result4)&uint16(00)))
-								kr.TU = 0 //Сброс ТУ
-							}
+							result5, err3 := client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), binary.BigEndian.Uint16(result4)|uint16(0000000000000001<<ii))
+							err_log(err3, result5)
+							Buff_KR[ii].KR_sel = false
+							Buff_KR[ii].CMD = false
 						}
+						if Buff_KR[ii].Send_cancel { // сбрасываем команду
+							result4, err3 := client.ReadHoldingRegisters(uint16(20), uint16(1)) // Вычитываем что в регистре управления DO
+							err_log(err3, result4)
+							result5, err3 := client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), binary.BigEndian.Uint16(result4)^uint16(0000000000000001<<ii))
+							err_log(err3, result5)
+							Buff_KR[ii].Send_cancel = false
+						}
+						//else { // Если пришла команда открытия и есть сеанс
+						//	if Seans_KR_ON {
+						//		result4, err3 := client.ReadHoldingRegisters(uint16(36), uint16(1)) // Вычитываем что в регистре управления DO
+						//		err_log(err3, result4)
+						//		if kr.pred != 2 { // Если отмена
+						//			result5, err3 := client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), uint16(binary.LittleEndian.Uint16(result4)|uint16(00000001<<2)))
+						//			err_log(err3, result5)
+						//			//if timer1.Stop() {
+						//			//	timer1 := time.NewTimer(10 * time.Second)
+						//			//	<-timer1.C
+						//			//	fmt.Printf("\t>>>>> Отработал таймер 10 сек: %v\r\n", timer1)
+						//			//}
+						//
+						//		} else {
+						//			result5, err3 := client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), uint16(binary.LittleEndian.Uint16(result4)^uint16(00000001<<2)))
+						//			err_log(err3, result5)
+						//		}
+						//	}
+						//	// Если сеанс закрыли сбрасываем в 00
+						//	if !Seans_KR_ON && !Seans_KR_OFF {
+						//		result4, err3 := client.ReadHoldingRegisters(uint16(36), uint16(1)) // Вычитываем что в регистре управления DO
+						//		err_log(err3, result4)
+						//		client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), uint16(binary.LittleEndian.Uint16(result4)&uint16(00)))
+						//		kr.TU = 0 //Сброс ТУ
+						//	}
+						//}
 						if err != nil {
 							// ошибка записи Single Copils
 							Log.Printf("**ERROR** Write Single Coils, Chanel: %s AddrID: %d\r\n", chanel.Ip, 1)
@@ -870,6 +878,8 @@ func req_tcp_serial(chanel *Set_tcp, cc <-chan struct{}, inc <-chan inc_req, arr
 			array = nil
 			copy(Buff_D, array_d)
 			array_d = nil
+			//		array_kr = nil
+
 		}
 	}
 }
@@ -900,8 +910,6 @@ func Modbus_up() {
 			}
 		}
 	}
-	// var Buff []Bufer
-
 	// пытаемся открыть файл для записи лога
 	fl, errl := os.OpenFile("test_dm04.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0777)
 	if errl != nil {
@@ -927,36 +935,7 @@ func Modbus_up() {
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP)
 
 	for i := 0; i < config.Count_tcp_serial; i++ {
-		icc := make(chan inc_req, 3) // создадим канал для записи данных в горутину
-		//for y := 0; y < int(config.Tcp_serial[i].Count_node); y++ {
-		//	cmd := config.Tcp_serial[i].Set_node[y].Command
-		//	if cmd == 1 { // команда чтения Coils
-		//		indx := config.Tcp_serial[i].Set_node[y].Index_up // стартовый индекс
-		//		id := uint8(config.Tcp_serial[i].Set_node[y].Address_id)
-		//		addr := config.Tcp_serial[i].Set_node[y].Address_data
-		//		for x := 0; x < int(config.Tcp_serial[i].Set_node[y].Data_length); x++ {
-		//			// Можно делать проверку на перезапись данных по сериал, но пока не будем !!!!!
-		//			CoilsRed[int(indx)+x].ChanelSerial = 0                        // на каком номере канала висит нода - можно не использовать связка пр каналу
-		//			CoilsRed[int(indx)+x].ChanelTCP = i                           // у нас канал TCP, не SERIAL
-		//			CoilsRed[int(indx)+x].Address_data = uint16(addr) + uint16(x) // связанный адрес в устройстве
-		//			CoilsRed[int(indx)+x].Address_id = id                         // адрес устройства
-		//			CoilsRed[int(indx)+x].icc = icc                               // канал для передачи данных в горутину
-		//		}
-		//	}
-		//	if cmd == 3 { // команда чтения Holding Registers
-		//		indx := config.Tcp_serial[i].Set_node[y].Index_up // стартовый индекс
-		//		id := uint8(config.Tcp_serial[i].Set_node[y].Address_id)
-		//		addr := config.Tcp_serial[i].Set_node[y].Address_data
-		//		for x := 0; x < int(config.Tcp_serial[i].Set_node[y].Data_length); x++ {
-		//			HRegRed[int(indx)+x].ChanelSerial = 0                        // на каком номере канала висит нода - можно не использовать связка пр каналу
-		//			HRegRed[int(indx)+x].ChanelTCP = 1                           // у нас канал TCP, не SERIAL
-		//			HRegRed[int(indx)+x].Address_data = uint16(addr) + uint16(x) // связанный адрес в устройстве
-		//			HRegRed[int(indx)+x].Address_id = id                         // адрес устройства
-		//			HRegRed[int(indx)+x].icc = icc                               // канал для передачи данных в горутину
-		//		}
-		//	}
-		//}
-		// вызов циклической горутины запроса, пока одной по конкретному каналу (направлению опроса)
+		icc := make(chan inc_req, 3)                            // создадим канал для записи данных в горутину
 		go req_tcp_serial(&config.Tcp_serial[i], cc, icc, Buff) // запускаем обработчик канала ввода-вывода
 	}
 	//for {

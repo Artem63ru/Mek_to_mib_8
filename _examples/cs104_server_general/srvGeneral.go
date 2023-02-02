@@ -34,7 +34,6 @@ type mysrv struct{}
 func (sf *mysrv) InterrogationHandler(c asdu.Connect, asduPack *asdu.ASDU, qoi asdu.QualifierOfInterrogation) error {
 	log.Println("qoi", qoi)
 	asduPack.SendReplyMirror(c, asdu.ActivationCon)
-
 	send_100(sf, c, asduPack)
 	//time.Sleep(time.Second * 1)
 	asduPack.SendReplyMirror(c, asdu.ActivationTerm)
@@ -82,7 +81,6 @@ func (sf *mysrv) ReadHandler(c asdu.Connect, asdu1 *asdu.ASDU, io asdu.InfoObjAd
 		if cs104.Buff_D[i].Mek_104.Ioa == io {
 			asdu.SingleCP24Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Request}, 1, cs104.Buff_D[i].Mek_104)
 		}
-
 	}
 	return nil
 }
@@ -91,4 +89,12 @@ func (sf *mysrv) ResetProcessHandler(asdu.Connect, *asdu.ASDU, asdu.QualifierOfR
 	return nil
 }
 func (sf *mysrv) DelayAcquisitionHandler(asdu.Connect, *asdu.ASDU, uint16) error { return nil }
-func (sf *mysrv) ASDUHandler(asdu.Connect, *asdu.ASDU) error                     { return nil }
+func (sf *mysrv) Comand_C_SC_NA1(c asdu.Connect, asduPack *asdu.ASDU) error {
+	if asduPack.Coa.Cause == asdu.Activation {
+		asduPack.SendReply_CMD(c, asdu.ActivationCon)
+	} else {
+		asduPack.SendReply_CMD(c, asdu.Deactivation)
+	}
+	return nil
+}
+func (sf *mysrv) ASDUHandler(asdu.Connect, *asdu.ASDU) error { return nil }

@@ -90,6 +90,22 @@ type BD_params_singl struct {
 	Up_Val bool
 }
 
+// Описание структуры набора дискретных параметров для обмена
+type BD_params_KR struct {
+	// порядковый номер параметра
+	ID int
+	// Наименование параметра
+	Name string
+	// Описание параметра /адрес/значение/регистры передачи/время для протокола МЭК 104
+	Mek_104 SingleCommandInfo
+	// Адрес параметра в Modbus устройтвые источника / ноемр регистра
+	Mod_adress int
+	// Время последнего изменения - опционально
+	Uptime time.Time
+	// Флаг изменения сигнала для спародической передачи
+	Up_Val bool
+}
+
 // Буфер для хранения данных
 type Buffer struct {
 	// Запись о параметре
@@ -216,10 +232,12 @@ func (sf *ASDU) SendReplyMirror(c Connect, cause Cause) error {
 }
 
 // Моя функция для показа 100
-func (sf *ASDU) SendReply_100(c Connect, cause Cause) error {
+func (sf *ASDU) SendReply_CMD(c Connect, cause Cause) error {
 	r := NewASDU(sf.Params, sf.Identifier)
 	r.Coa.Cause = cause
-
+	//	iot.Ioa
+	r.infoObj = append(r.infoObj)
+	//r.infoObj = append(r.infoObj, 0, 0, 0)
 	r.infoObj = append(r.infoObj, sf.infoObj...)
 	return c.Send(r)
 }

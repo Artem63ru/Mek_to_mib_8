@@ -568,6 +568,44 @@ func (sf *SrvSession) serverHandler(asduPack *asdu.ASDU) error {
 			return asduPack.SendReplyMirror(sf, asdu.UnknownIOA)
 		}
 		return sf.handler.DelayAcquisitionHandler(sf, asduPack, msec)
+	case asdu.C_SC_NA_1: // Команда управления краном
+		if !(asduPack.Identifier.Coa.Cause == asdu.Activation ||
+			asduPack.Identifier.Coa.Cause == asdu.Deactivation) {
+			return asduPack.SendReplyMirror(sf, asdu.UnknownCOT)
+		}
+		if asduPack.CommonAddr == asdu.InvalidCommonAddr {
+			return asduPack.SendReplyMirror(sf, asdu.UnknownCA)
+		}
+		_copyASDU := asduPack.Clone()
+		ioa := asduPack.GetSingleCmd()
+		//	asduPack.AppendInfoObjAddr()
+		//	asduPack.q
+		var cmd bool
+		for i := 0; i < Count_DOpar; i++ {
+			if ioa.Ioa == Buff_KR[i].Mek_104.Ioa {
+				if ioa.Qoc.InSelect {
+					Buff_KR[i].Mek_104.Qoc.InSelect = true
+					fmt.Println("Кран выбран", Buff_KR[i].Mek_104.Qoc.InSelect)
+				} else {
+					if ioa.Value && Buff_KR[i].Mek_104.Qoc.InSelect {
+						Buff_KR[i].Mek_104.Value = true
+						fmt.Println("Кран установлен в положение команды", Buff_KR[i].Mek_104.Value)
+					}
+				}
+				if asduPack.Coa.Cause == asdu.Deactivation {
+					Buff_KR[i].Mek_104.Value = false
+					Buff_KR[i].Mek_104.Qoc.InSelect = false
+					Buff_KR[i].Up_Val = true
+					fmt.Println("Кран сброшен", Buff_KR[i].Mek_104.Value)
+				}
+
+				cmd = true
+			}
+		}
+		if !cmd {
+			return _copyASDU.SendReplyMirror(sf, asdu.UnknownIOA)
+		}
+		return sf.handler.Comand_C_SC_NA1(sf, _copyASDU)
 	}
 
 	if err := sf.handler.ASDUHandler(sf, asduPack); err != nil {
