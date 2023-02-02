@@ -175,6 +175,7 @@ type Bufer_KR struct {
 	KR_sel      bool
 	Send_cancel bool
 	CMD         bool
+	Num_chanel  int
 }
 
 // ***************************************************************************************
@@ -761,22 +762,31 @@ func req_tcp_serial(chanel *Set_tcp, cc <-chan struct{}, inc <-chan inc_req, arr
 						handler.SlaveId = 1
 						client = modbus.NewClient(handler) // перезапустим клиента
 					}
-					for ii := 0; ii < int(chanel.Set_node[count].Data_length); ii++ {
+					//	timer1 := time.NewTimer(2 * time.Second)
+					for ii := 0; ii < Count_DOpar; ii++ {
 						// Если пришла команда закрытия и есть сеанс
 						//var Seans_KR_OFF bool //= 0 // server.Coils[int(chanel.Set_node[count].Index_up)+ii] == 0 && kr.TU == 1 && !(server.DiscreteInputs[int(chanel.Set_node[count-1].Index_up)+4] == 1) // Если пришла команда закрытия и есть сеанс
 						//var Seans_KR_ON bool  //=1 // server.Coils[int(chanel.Set_node[count].Index_up)+ii] == 0 && kr.TU == 2 && !(server.DiscreteInputs[int(chanel.Set_node[count-1].Index_up)+5] == 1)  // Если пришла команда открытия и есть сеанс
+						result4, err3 := client.ReadHoldingRegisters(uint16(30), uint16(1)) // Вычитываем что в регистре управления DO
+						err_log(err3, result4)
+
 						if Buff_KR[ii].KR_sel && Buff_KR[ii].CMD { // исполняем команду
-							result4, err3 := client.ReadHoldingRegisters(uint16(20), uint16(1)) // Вычитываем что в регистре управления DO
-							err_log(err3, result4)
-							result5, err3 := client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), binary.BigEndian.Uint16(result4)|uint16(0000000000000001<<ii))
+
+							result5, err3 := client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), binary.BigEndian.Uint16(result4)|uint16(1<<Buff_KR[ii].Num_chanel))
 							err_log(err3, result5)
 							Buff_KR[ii].KR_sel = false
 							Buff_KR[ii].CMD = false
+							//timer1 := time.AfterFunc(time.Second*10, func() {
+							//	result4, err3 := client.ReadHoldingRegisters(uint16(30), uint16(1)) // Вычитываем что в регистре управления DO
+							//	err_log(err3, result4)
+							//	result5, err3 := client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), binary.BigEndian.Uint16(result4)^uint16(1<<Buff_KR[ii].Num_chanel))
+							//	err_log(err3, result5)
+							//	Buff_KR[ii].Send_cancel = false
+							//})
+							//<-timer1.C
 						}
 						if Buff_KR[ii].Send_cancel { // сбрасываем команду
-							result4, err3 := client.ReadHoldingRegisters(uint16(20), uint16(1)) // Вычитываем что в регистре управления DO
-							err_log(err3, result4)
-							result5, err3 := client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), binary.BigEndian.Uint16(result4)^uint16(0000000000000001<<ii))
+							result5, err3 := client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), binary.BigEndian.Uint16(result4)^uint16(1<<Buff_KR[ii].Num_chanel))
 							err_log(err3, result5)
 							Buff_KR[ii].Send_cancel = false
 						}

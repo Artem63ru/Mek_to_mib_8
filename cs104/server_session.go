@@ -593,10 +593,12 @@ func (sf *SrvSession) serverHandler(asduPack *asdu.ASDU) error {
 					}
 				}
 				if asduPack.Coa.Cause == asdu.Deactivation {
-					Buff_KR[i].Mek_104.Value = false
-					Buff_KR[i].Mek_104.Qoc.InSelect = false
-					Buff_KR[i].Up_Val = true
-					fmt.Println("Кран сброшен", Buff_KR[i].Mek_104.Value)
+					if Buff_KR[i].Mek_104.Qoc.InSelect {
+						Buff_KR[i].Mek_104.Value = false
+						Buff_KR[i].Mek_104.Qoc.InSelect = false
+						Buff_KR[i].Up_Val = true
+						fmt.Println("Кран сброшен", Buff_KR[i].Mek_104.Value)
+					}
 				}
 
 				cmd = true

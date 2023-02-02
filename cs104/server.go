@@ -160,19 +160,12 @@ func Ser_Init(path string) {
 					Buff_D[x].Mek_104.Time = time.Now() // номер параметр в массиве
 				}
 			case 3:
-				indx := ConfigT.Tcp_serial[i].Set_node[y].Index_up     // стартовый индекс
-				addr := ConfigT.Tcp_serial[i].Set_node[y].Address_data // адрес в МК такта
-				// Команда открыть
+				indx := ConfigT.Tcp_serial[i].Set_node[y].Index_up             // стартовый индекс
+				addr := ConfigT.Tcp_serial[i].Set_node[y].Address_data         // адрес в МК такта
 				Buff_KR[Count_DOpar].Mek_104.Ioa = asdu.InfoObjAddr(int(indx)) // делаем адресацию как в модбасе инпутрегистры
-				Buff_D[Count_DOpar].Mod_adress = int(addr)                     // адрес модбаса в МК
-				Buff_D[Count_DOpar].ID = int(indx)
-				Buff_D[Count_DOpar].Mek_104.Time = time.Now() // номер параметр в массиве
-				// команда закрыть
-				Count_DOpar = Count_DOpar + 1
-				Buff_KR[Count_DOpar].Mek_104.Ioa = asdu.InfoObjAddr(int(indx) + 1) // делаем адресацию как в модбасе инпутрегистры
-				Buff_D[Count_DOpar].Mod_adress = int(addr)                         // адрес модбаса в МК
-				Buff_D[Count_DOpar].ID = int(indx) + 1
-				Buff_D[Count_DOpar].Mek_104.Time = time.Now() // номер параметр в массиве
+				Buff_KR[Count_DOpar].Mod_adress = int(addr)                    // адрес модбаса в МК
+				Buff_KR[Count_DOpar].ID = int(ConfigT.Tcp_serial[i].Set_node[y].Address_id)
+				Buff_KR[Count_DOpar].Mek_104.Time = time.Now() // номер параметр в массиве
 				Count_DOpar = Count_DOpar + 1
 			}
 
@@ -236,6 +229,7 @@ func read_mod() {
 		for i := 0; i < Count_DOpar; i++ {
 			modbus_mk.Buff_KR[i].KR_sel = Buff_KR[i].Mek_104.Qoc.InSelect
 			modbus_mk.Buff_KR[i].CMD = Buff_KR[i].Mek_104.Value
+			modbus_mk.Buff_KR[i].Num_chanel = Buff_KR[i].ID
 			if Buff_KR[i].Up_Val {
 				modbus_mk.Buff_KR[i].Send_cancel = Buff_KR[i].Up_Val
 			}
