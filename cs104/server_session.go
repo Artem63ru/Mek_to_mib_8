@@ -581,6 +581,8 @@ func (sf *SrvSession) serverHandler(asduPack *asdu.ASDU) error {
 		//	asduPack.AppendInfoObjAddr()
 		//	asduPack.q
 		var cmd bool
+		Timer2 := time.NewTimer(time.Second * 1)
+		Timer2.Stop()
 		for i := 0; i < Count_DOpar; i++ {
 			if ioa.Ioa == Buff_KR[i].Mek_104.Ioa {
 				if ioa.Qoc.InSelect {
@@ -590,6 +592,8 @@ func (sf *SrvSession) serverHandler(asduPack *asdu.ASDU) error {
 					if ioa.Value && Buff_KR[i].Mek_104.Qoc.InSelect {
 						Buff_KR[i].Mek_104.Value = true
 						fmt.Println("Кран установлен в положение команды", Buff_KR[i].Mek_104.Value)
+						Timer2.Reset(time.Second * 60)
+						go Timer_OFF(i, Timer2)
 					}
 				}
 				if asduPack.Coa.Cause == asdu.Deactivation {
@@ -598,6 +602,10 @@ func (sf *SrvSession) serverHandler(asduPack *asdu.ASDU) error {
 						Buff_KR[i].Mek_104.Qoc.InSelect = false
 						Buff_KR[i].Up_Val = true
 						fmt.Println("Кран сброшен", Buff_KR[i].Mek_104.Value)
+						stop := Timer2.Stop()
+						if stop {
+							fmt.Println("Stop Timer time  = ", time.Now())
+						}
 					}
 				}
 
@@ -663,6 +671,27 @@ func Sparodic_send(c asdu.Connect) {
 				Buff_D[i].Up_Val = false
 			}
 		}
-		time.Sleep(time.Millisecond * 400)
+		time.Sleep(time.Millisecond * 500)
 	}
+}
+
+// Отключение команды по таймеру
+func Timer_OFF(i int, Timer2 *time.Timer) {
+	//Timer_off := time.NewTimer(20 * time.Second)
+	<-Timer2.C
+	fmt.Println("Timer 2 expired   time  = ", time.Now())
+	if Buff_KR[i].Mek_104.Qoc.InSelect {
+		Buff_KR[i].Mek_104.Value = false
+		Buff_KR[i].Mek_104.Qoc.InSelect = false
+		Buff_KR[i].Up_Val = true
+		fmt.Println("Кран сброшен", Buff_KR[i].Mek_104.Value, "    time  = ", time.Now())
+	}
+	//<-Timer_off.C
+	//fmt.Println("Timer Крана остановлен", Buff_KR[i].ID)
+	//if Buff_KR[i].Mek_104.Qoc.InSelect {
+	//	Buff_KR[i].Mek_104.Value = false
+	//	Buff_KR[i].Mek_104.Qoc.InSelect = false
+	//	Buff_KR[i].Up_Val = true
+	//	fmt.Println("Кран сброшен", Buff_KR[i].Mek_104.Value)
+	//}
 }

@@ -236,7 +236,7 @@ func read_mod() {
 			Buff_KR[i].Up_Val = false
 			Buff_KR[i].Mek_104.Value = false
 		}
-		time.Sleep(time.Millisecond * 500)
+		time.Sleep(time.Millisecond * 300)
 	}
 
 }

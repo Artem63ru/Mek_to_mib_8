@@ -612,8 +612,8 @@ func req_tcp_serial(chanel *Set_tcp, cc <-chan struct{}, inc <-chan inc_req, arr
 	} else {
 
 		client := modbus.NewClient(handler)
-		Buff := make([]Bufer, Count_Anpar)     // для передачи наверх виден из модуля cp104
-		Buff_D := make([]Bufer_D, Count_DIpar) // для передачи наверх виден из модуля cp104
+		//	Buff := make([]Bufer, Count_Anpar)     // для передачи наверх виден из модуля cp104
+		//	Buff_D := make([]Bufer_D, Count_DIpar) // для передачи наверх виден из модуля cp104
 		//	Buff_KR := make([]Bufer_KR, Count_DOpar) // для передачи наверх виден из модуля cp104
 		//var array = make([]Bufer, Count_Anpar)     // временный буфер для аналогов
 		var array []Bufer     // временный буфер для аналогов
@@ -753,6 +753,8 @@ func req_tcp_serial(chanel *Set_tcp, cc <-chan struct{}, inc <-chan inc_req, arr
 									}
 
 								}
+								//st := strconv.FormatUint(uint64(buf), 10)
+								//fmt.Printf("%s", st)
 							}
 						}
 
