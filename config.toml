@@ -15,7 +15,7 @@ count_tcp_serial = 1
    ip = "127.0.0.1"     # при отладке на симуляторе - localhost
 #   ip = "172.16.205.141"    # при отладке на симуляторе Modbus Slave через внешний IP
     port = 502          # port used
-    time_loop = 500
+    time_loop = 400
     count_node = 5      # количество устройств на порту
 # описание nede? как и в tty_serial
 # input registers – ИЭ05-1

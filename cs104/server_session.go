@@ -489,7 +489,7 @@ func (sf *SrvSession) serverHandler(asduPack *asdu.ASDU) error {
 		ioa, qoi := asduPack.GetInterrogationCmd()
 		send_act := sf.handler.InterrogationHandler(sf, asduPack, qoi)
 		fmt.Print(ioa)
-		go Sparodic_send(sf) // Спародическая передача
+		go sf.Sparodic_send(sf) // Спародическая передача
 		return send_act
 
 	case asdu.C_CI_NA_1: // CounterInterrogationCmd
@@ -657,8 +657,12 @@ func (sf *SrvSession) UnderlyingConn() net.Conn {
 }
 
 // Передача значений спародически по изменению, проверяем и передаем
-func Sparodic_send(c asdu.Connect) {
+func (sf *SrvSession) Sparodic_send(c asdu.Connect) {
+
 	for {
+		if !sf.IsConnected() {
+			return
+		}
 		for i := 0; i < Count_Anpar; i++ {
 			if Buff[i].Up_Val {
 				asdu.MeasuredValueFloatCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, 1, Buff[i].Mek_104)

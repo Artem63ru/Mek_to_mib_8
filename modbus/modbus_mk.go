@@ -960,5 +960,5 @@ func Modbus_up() {
 	Debug = false    // останавливаем вывод на экран отладочной информации
 	fmt.Printf("Stop !!!!!\n\n")
 	Log.Printf("Stop !!!!!\n\n")
-	time.Sleep(time.Millisecond * 500)
+	time.Sleep(time.Millisecond * 400)
 }

@@ -25,7 +25,6 @@ func main() {
 	id := asdu.Identifier{Type: 1, Variable: vari, Coa: coa, OrigAddr: 1, CommonAddr: 1}
 	ASD := asdu.NewASDU(Par, id)
 	SRV.SetParams(ASD.Params)
-	ASD.Init_par()
 	SRV.ListenAndServer(":2404")
 }
 

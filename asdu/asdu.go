@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"math/bits"
-	"math/rand"
 	"time"
 )
 
@@ -29,9 +28,8 @@ var (
 	ParamsNarrow = &Params{CauseSize: 1, CommonAddrSize: 1, InfoObjAddrSize: 1, InfoObjTimeZone: time.UTC}
 	// ParamsWide is the largest configuration.
 	ParamsWide = &Params{CauseSize: 2, CommonAddrSize: 2, InfoObjAddrSize: 3, InfoObjTimeZone: time.UTC}
-	// Массив параметров флоат для передачи параметров по МЭК 104.
-	Par_send = []BD_params_float{}
-	Buff     = [][]Buffer{}
+
+	Buff = [][]Buffer{}
 )
 
 // Params 定义了ASDU相关特定参数
@@ -366,63 +364,9 @@ func (sf *ASDU) fixInfoObjSize() error {
 	return nil
 }
 
-func (sf *ASDU) Init_par() {
-	var vale MeasuredValueFloatInfo
-	for i := 0; i < 4; i++ {
-		vale.Ioa = InfoObjAddr(uint32(i) + 4001)
-		vale.Qds = 0
-		vale.Value = float32(0)
-		vale.Time = time.Now()
-		bd := BD_params_float{1 + i, "Наименование 1", vale, 101 + i, time.Now(), false}
-		Par_send = append(Par_send, bd)
-	}
-	//if Par_send == nil:
-	//	return panic(1)
-	return
-}
-
-// Спародическая передача параметров на верх
-func (sf *ASDU) Transfer(c Connect) {
-	for i := 0; i < 4; i++ {
-		MeasuredValueFloatCP56Time2a(c, CauseOfTransmission{Cause: Spontaneous}, 1, Par_send[i].Mek_104)
-	}
-}
-
 // Буферная передача массива параметров на верх
 func Transfer_buff(c Connect, par []BD_params_float) {
-	for i := 0; i < 4; i++ {
+	for i := 0; i < len(par); i++ {
 		MeasuredValueFloatCP56Time2a(c, CauseOfTransmission{Cause: Spontaneous}, 1, par[i].Mek_104)
 	}
-}
-
-// Проверка параметров на изменение и запись новых в буфер со временем
-func Check_value() {
-	value := rand.Float32()
-	for i := 0; i < 4; i++ {
-		//	if value > Par_send[i].Mek_104.Value {
-		Par_send[i].Mek_104.Value = value
-		Par_send[i].Mek_104.Time = time.Now()
-		Par_send[i].Mek_104.Qds = 0
-		//	} else {
-		//		Par_send[i].Mek_104.Qds = 16
-		//	}
-		value = rand.Float32()
-
-	}
-}
-
-func buff() {
-
-	var val_par []BD_params_float
-	var i int = 0
-	for {
-		Check_value()
-		val_par = append(val_par, Par_send[0], Par_send[1], Par_send[2], Par_send[3])
-		Buff[0][i].parameter = val_par
-		time.Sleep(time.Second * 10)
-		i++
-	}
-
-	//}
-
 }

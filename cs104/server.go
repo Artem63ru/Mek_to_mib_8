@@ -29,12 +29,16 @@ const timeoutResolution = 100 * time.Millisecond
 
 var ConfigT TomlConfig               // структура конфигуратора
 var Log *log.Logger                  // это логер для записи
-var Buff [100]asdu.BD_params_float   // массив параметров
+var Buff [100]asdu.BD_params_float   // массив аналоговых параметров
 var Buff_D [100]asdu.BD_params_singl // массив параметров
 var Buff_KR [100]asdu.BD_params_KR   // массив параметров кранов
 var Count_Anpar int
 var Count_DIpar int
 var Count_DOpar int
+var Сonnect_srv = false
+
+// Массив параметров флоат для передачи параметров по МЭК 104.
+var Par_send []asdu.BD_params_float
 
 // Путь к БД
 const dbpath = "test.db"
@@ -217,6 +221,8 @@ func read_mod() {
 				Buff[i].Mek_104.Value = modbus_mk.Buff[i].Val
 				Buff[i].Mek_104.Time = time.Now()
 				Buff[i].Up_Val = true
+				fmt.Printf("update values par true", time.Now(), " time \n")
+
 			}
 		}
 		for i := 0; i < Count_DIpar; i++ {
@@ -236,14 +242,14 @@ func read_mod() {
 			Buff_KR[i].Up_Val = false
 			Buff_KR[i].Mek_104.Value = false
 		}
-		time.Sleep(time.Millisecond * 300)
+		time.Sleep(time.Millisecond * 100)
 	}
 
 }
 
 // ListenAndServer run the server
 func (sf *Server) ListenAndServer(addr string) {
-	//var connect = false
+
 	Ser_Init("config.toml")
 	listen, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -266,38 +272,37 @@ func (sf *Server) ListenAndServer(addr string) {
 	//asdu.Par_send = Ser_Init("config.toml")
 
 	go modbus_mk.Modbus_up()
-	time.Sleep(time.Millisecond * 5000)
+	time.Sleep(time.Second * 5)
 	go read_mod()
 	//	Buff[0].Mek_104.Value = modbus_mk.Buff[0].Val
 	// Работа с БД
 	//db := InitDB(dbpath)
 	//defer db.Close()
 
-	//go func() {
-	//	var val_par [][]asdu.BD_params_float
-	//	for {
-	//		asdu.Check_value()
-	//		time.Sleep(time.Second * 1)
-	//		if connect {
-	//			sf.Debug("UpDate Value in connect")
-	//			if len(val_par) > 0 {
-	//				for i := 0; i < len(val_par); i++ {
-	//					asdu.Transfer_buff(sf, val_par[i])
-	//					//time.Sleep(time.Second * 1)
-	//				}
-	//				val_par = nil
-	//			}
-	//		} else {
-	//			sf.Debug("UpDate Value in no connection")
-	//
-	//			par := []asdu.BD_params_float{asdu.Par_send[0], asdu.Par_send[1], asdu.Par_send[2], asdu.Par_send[3]}
-	//			val_par = append(val_par, par)
-	//			time.Sleep(time.Second * 5)
-	//
-	//		}
-	//
-	//	}
-	//}()
+	go func() {
+
+		for {
+
+			//time.Sleep(time.Second * 1)
+			if Сonnect_srv {
+				sf.Debug("UpDate Value in connect")
+				time.Sleep(time.Second * 10)
+				if len(Par_send) > 0 {
+					//	for i := 0; i < len(Par_send); i++ {
+					asdu.Transfer_buff(sf, Par_send)
+					fmt.Print("Отправил из буфера")
+					//	}
+					Par_send = nil
+				}
+			} else {
+				sf.Debug("UpDate Value in no connection")
+				Check_value()
+				time.Sleep(time.Second * 10)
+			}
+
+		}
+	}()
+
 	for {
 		conn, err := listen.Accept()
 		if err != nil {
@@ -307,7 +312,7 @@ func (sf *Server) ListenAndServer(addr string) {
 
 		sf.wg.Add(1)
 		go func() {
-			//	connect = true
+			Сonnect_srv = true
 			sess := &SrvSession{
 				config:   &sf.config,
 				params:   &sf.params,
@@ -331,7 +336,7 @@ func (sf *Server) ListenAndServer(addr string) {
 			delete(sf.sessions, sess)
 			sf.mux.Unlock()
 			sf.wg.Done()
-			//connect = false
+			Сonnect_srv = false
 		}()
 	}
 }
@@ -403,4 +408,16 @@ func StoreItem(db *sql.DB, items Paramerts) {
 	}
 	return
 
+}
+
+// Проверка параметров на изменение и запись новых в буфер со временем
+func Check_value() {
+	fmt.Printf("cheking values", time.Now(), " time \n")
+	for i := 0; i < Count_Anpar; i++ {
+		if Buff[i].Up_Val {
+			Par_send = append(Par_send, Buff[i])
+			fmt.Print("Записал значение ", Buff[i].Mek_104.Value, time.Now(), " time \n")
+			Buff[i].Up_Val = false
+		}
+	}
 }
