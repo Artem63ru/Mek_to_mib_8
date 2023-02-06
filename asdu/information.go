@@ -69,7 +69,7 @@ const (
 	QDSSubstituted
 	// QDSNotTopical flags that the most recent update was unsuccessful.
 	QDSNotTopical
-	// QDSInvalid flags that the value was incorrectly acquired.
+	//QDSInvalid flags that the value was incorrectly acquired.
 	QDSInvalid
 
 	// QDSGood means no flags, no problems.

@@ -131,17 +131,29 @@ type Set_tcp struct {
 
 // описание ноды на канале TCP
 type Node struct {
-	Address_id   uint8  // адрес на шине
-	Enable       bool   // включено устройство в опрос или нет
-	Command      uint8  // обрабатываемая комманда опроса
-	Address_data uint16 // адрес начала данных с ноде
-	Data_length  uint16 // длинна данных
-	Index_up     uint   // позиция данных с ноды в на глобальной карте параметров
-	Type_par     uint   // Тип параметра получаемого от такт-у 1-AI, 2-DI
+	Address_id   uint8       // адрес на шине
+	Enable       bool        // включено устройство в опрос или нет
+	Command      uint8       // обрабатываемая комманда опроса
+	Address_data uint16      // адрес начала данных с ноде
+	Data_length  uint16      // длинна данных
+	Index_up     uint        // позиция данных с ноды в на глобальной карте параметров
+	Type_par     uint        // Тип параметра получаемого от такт-у 1-AI, 2-DI
+	Params       []Paramerts // Описание каждого параметра
 	// изменяется во время опроса по ответу-неответу от устройства - делать не здесь, а в статусе
 	//	Time   time.Time // время последнего опроса
 	//	Status uint8     // статус опроса устройства
 
+}
+
+// Структура таблицы БД SQLite / и в файле конфигурации
+type Paramerts struct {
+	Id     uint16
+	Addres uint16    //Адресс в АСДУ
+	Hi     string    // верхняя граница
+	Low    string    // нижняя граница
+	Value  uint16    //Значение
+	QDS    uint16    //Качество
+	Date   time.Time //Метка времени
 }
 
 // настройки канала для всех нод однотипные
@@ -730,16 +742,9 @@ func req_tcp_serial(chanel *Set_tcp, cc <-chan struct{}, inc <-chan inc_req, arr
 						new_data := mbserver.BytesToUint16(result3)
 						for ii := 0; ii < int(chanel.Set_node[count].Data_length); ii++ {
 							if chanel.Set_node[count].Type_par == 1 { // Пишем регистр в область InputRegisters
-								//server.HoldingRegisters[ii+int(chanel.Set_node[count].Index_up)] = new_data[ii]
-								// Пересчет милиамперов из Такт-У в кода АЦП Зонда 0-4096
-								s := int16(new_data[ii])
-								var d = float32(0)
-								if float32(s) >= float32(4000) {
-									d = float32((float32(s)-4000)/16000) * 4095 // переводим в шкалу 0-4095/4мА - 20 мА
-								}
-								var val = Bufer{ii + int(chanel.Set_node[count].Index_up), d}
+								var val = Bufer{ii + int(chanel.Set_node[count].Index_up), float32(new_data[ii])}
 								array = append(array, val)
-								//coun = coun + 1
+
 							}
 							if chanel.Set_node[count].Type_par == 2 { // Разбираем Слово на биты если нам надо прочитать дискретный вход
 								buf := new_data[ii]

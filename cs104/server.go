@@ -18,6 +18,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -58,13 +59,16 @@ type Server struct {
 	wg sync.WaitGroup
 }
 
-// Структура таблицы БД SQLite
+// Структура таблицы БД SQLite / и в файле конфигурации
 type Paramerts struct {
-	Id     string
-	Addres int       //Адресс в АСДУ
-	Value  float32   //Значение
-	QDS    int       //Качество
+	Id     uint16
+	Addres uint16    //Адресс в АСДУ
+	Hi     string    // верхняя граница
+	Low    string    // нижняя граница
+	Value  uint16    //Значение
+	QDS    uint16    //Качество
 	Date   time.Time //Метка времени
+
 }
 
 // структура конфигурации
@@ -89,13 +93,14 @@ type Set_tcp struct {
 
 // описание ноды на канале TCP
 type Node struct {
-	Address_id   uint8  // адрес на шине
-	Enable       bool   // включено устройство в опрос или нет
-	Command      uint8  // обрабатываемая комманда опроса
-	Address_data uint16 // адрес начала данных с ноде
-	Data_length  uint16 // длинна данных
-	Index_up     uint   // позиция данных с ноды в на глобальной карте параметров
-	Type_par     uint   // Тип параметра получаемого от такт-у 1-AI, 2-DI
+	Address_id   uint8       // адрес на шине
+	Enable       bool        // включено устройство в опрос или нет
+	Command      uint8       // обрабатываемая комманда опроса
+	Address_data uint16      // адрес начала данных с ноде
+	Data_length  uint16      // длинна данных
+	Index_up     uint        // позиция данных с ноды в на глобальной карте параметров
+	Type_par     uint        // Тип параметра получаемого от такт-у 1-AI, 2-DI
+	Params       []Paramerts // Описание каждого параметра
 	// изменяется во время опроса по ответу-неответу от устройства - делать не здесь, а в статусе
 	//	Time   time.Time // время последнего опроса
 	//	Status uint8     // статус опроса устройства
@@ -144,14 +149,22 @@ func Ser_Init(path string) {
 			switch _type {
 			case 1:
 				Count_Anpar = Count_Anpar + int(ConfigT.Tcp_serial[i].Set_node[y].Data_length) // количество аналогов
-				indx := ConfigT.Tcp_serial[i].Set_node[y].Index_up                             // стартовый индекс
 				addr := ConfigT.Tcp_serial[i].Set_node[y].Address_data                         // адрес в МК такта
 				for x := Count_Anpar - int(ConfigT.Tcp_serial[i].Set_node[y].Data_length); x < Count_Anpar; x++ {
-					Buff[x].Mek_104.Ioa = asdu.InfoObjAddr(int(indx) + x + 30000) // делаем адресацию как в модбасе инпутрегистры
-					Buff[x].Mod_adress = int(addr) + x                            // адрес модбаса в МК
-					Buff[x].ID = int(indx) + x                                    // номер параметр в массиве
-					Buff[x].Mek_104.Time = time.Now()                             //
-
+					Buff[x].Mek_104.Ioa = asdu.InfoObjAddr(ConfigT.Tcp_serial[i].Set_node[y].Params[x].Addres) // делаем адресацию как в модбасе инпутрегистры
+					Buff[x].Mod_adress = int(addr) + x                                                         // адрес модбаса в МК
+					Buff[x].ID = x                                                                             // номер параметр в массиве
+					Buff[x].Mek_104.Time = time.Now()                                                          //
+					//Buff[x].Ai_hi = float32(ConfigT.Tcp_serial[i].Set_node[y].Params[x].Hi)
+					//Buff[x].Ai_low = float32(ConfigT.Tcp_serial[i].Set_node[y].Params[x].Low)
+					if s, err := strconv.ParseFloat(ConfigT.Tcp_serial[i].Set_node[y].Params[x].Hi, 64); err == nil {
+						fmt.Println(s) // 3.1415927410125732
+						Buff[x].Ai_hi = float32(s)
+					}
+					if s, err := strconv.ParseFloat(ConfigT.Tcp_serial[i].Set_node[y].Params[x].Low, 64); err == nil {
+						fmt.Println(s) // 3.1415927410125732
+						Buff[x].Ai_low = float32(s)
+					}
 				}
 			case 2:
 				Count_DIpar = Count_DIpar + 16                         // количество дискретов
@@ -217,13 +230,9 @@ func (sf *Server) SetParams(p *asdu.Params) *Server {
 func read_mod() {
 	for {
 		for i := 0; i < Count_Anpar; i++ {
-			if Buff[i].Mek_104.Value != modbus_mk.Buff[i].Val {
-				Buff[i].Mek_104.Value = modbus_mk.Buff[i].Val
-				Buff[i].Mek_104.Time = time.Now()
-				Buff[i].Up_Val = true
-				fmt.Printf("update values par true", time.Now(), " time \n")
-
-			}
+			Buff[i].Decod_ACP_Ing(modbus_mk.Buff[i].Val)
+			Buff[i].Up_Val = true
+			//fmt.Printf("update values par true", time.Now(), " time \n")
 		}
 		for i := 0; i < Count_DIpar; i++ {
 			if Buff_D[i].Mek_104.Value != modbus_mk.Buff_D[i].Val {
@@ -242,7 +251,7 @@ func read_mod() {
 			Buff_KR[i].Up_Val = false
 			Buff_KR[i].Mek_104.Value = false
 		}
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 500) // было 100
 	}
 
 }
