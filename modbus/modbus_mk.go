@@ -955,11 +955,8 @@ func Modbus_up() {
 		icc := make(chan inc_req, 3)                            // создадим канал для записи данных в горутину
 		go req_tcp_serial(&config.Tcp_serial[i], cc, icc, Buff) // запускаем обработчик канала ввода-вывода
 	}
-	//for {
-	//	//fmt.Println(serv.HoldingRegisters[0])
-	//	time.Sleep(time.Millisecond * 200) // 500 мл Сек опрос
-	//}
-	<-c // ожидание нажатия Ctrl+C или kill
+
+	//<-c // ожидание нажатия Ctrl+C или kill
 
 	cc <- struct{}{} // остановка горутин (минимальная версия по размеру )
 	Debug = false    // останавливаем вывод на экран отладочной информации

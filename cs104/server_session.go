@@ -10,8 +10,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
-	"math/rand"
 	"net"
 	"strings"
 	"sync"
@@ -333,54 +331,6 @@ func (sf *SrvSession) run(ctx context.Context) {
 			}
 		}
 
-	}
-}
-
-func (sf *SrvSession) send_parad(c asdu.Connect, asduPack *asdu.ASDU) {
-	var rt asdu.SinglePointInfo
-	rt.Ioa = 200
-	rt.Time = time.Now()
-	rt.Qds = 1
-	rt.Value = true
-	var vale asdu.MeasuredValueFloatInfo
-	vale.Ioa = 4001
-	vale.Qds = 0
-	vale.Value = 150
-	var vale1 asdu.MeasuredValueFloatInfo
-	vale1.Ioa = 4002
-	vale1.Qds = 0
-	vale1.Value = 150
-	var vale3 asdu.MeasuredValueScaledInfo
-	vale3.Ioa = 4003
-	//vale3.Qds = 0
-	vale3.Value = 20
-
-	for {
-		err := asdu.Single(c, false, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, asduPack.CommonAddr, rt)
-		asdu.MeasuredValueFloatCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, asduPack.CommonAddr, vale)
-		asdu.MeasuredValueFloatCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, asduPack.CommonAddr, vale1)
-		asdu.MeasuredValueScaledCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, asduPack.CommonAddr, vale3)
-		if err != nil {
-			log.Println("falied", err)
-		} else {
-			log.Println("success", err)
-		}
-		vale.Value = rand.Float32()
-		vale1.Value = rand.Float32()
-		vale3.Value = int16(rand.Intn(100))
-		vale.Time = time.Now()
-		vale1.Time = time.Now()
-		vale3.Time = time.Now()
-		if rt.Value {
-			rt.Value = false
-		} else {
-			rt.Value = true
-		}
-		time.Sleep(time.Second * 1)
-		//	sf.
-		if !sf.IsConnected() {
-			return
-		}
 	}
 }
 

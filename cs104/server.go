@@ -151,17 +151,16 @@ func Ser_Init(path string) {
 				Count_Anpar = Count_Anpar + int(ConfigT.Tcp_serial[i].Set_node[y].Data_length) // количество аналогов
 				addr := ConfigT.Tcp_serial[i].Set_node[y].Address_data                         // адрес в МК такта
 				for x := Count_Anpar - int(ConfigT.Tcp_serial[i].Set_node[y].Data_length); x < Count_Anpar; x++ {
-					Buff[x].Mek_104.Ioa = asdu.InfoObjAddr(ConfigT.Tcp_serial[i].Set_node[y].Params[x].Addres) // делаем адресацию как в модбасе инпутрегистры
-					Buff[x].Mod_adress = int(addr) + x                                                         // адрес модбаса в МК
-					Buff[x].ID = x                                                                             // номер параметр в массиве
-					Buff[x].Mek_104.Time = time.Now()                                                          //
-					//Buff[x].Ai_hi = float32(ConfigT.Tcp_serial[i].Set_node[y].Params[x].Hi)
-					//Buff[x].Ai_low = float32(ConfigT.Tcp_serial[i].Set_node[y].Params[x].Low)
-					if s, err := strconv.ParseFloat(ConfigT.Tcp_serial[i].Set_node[y].Params[x].Hi, 64); err == nil {
+					xx := x - (Count_Anpar - int(ConfigT.Tcp_serial[i].Set_node[y].Data_length))
+					Buff[x].Mek_104.Ioa = asdu.InfoObjAddr(ConfigT.Tcp_serial[i].Set_node[y].Params[xx].Addres) // делаем адресацию как в модбасе инпутрегистры
+					Buff[x].Mod_adress = int(addr) + x                                                          // адрес модбаса в МК
+					Buff[x].ID = x                                                                              // номер параметр в массиве
+					Buff[x].Mek_104.Time = time.Now()                                                           //
+					if s, err := strconv.ParseFloat(ConfigT.Tcp_serial[i].Set_node[y].Params[xx].Hi, 64); err == nil {
 						fmt.Println(s) // 3.1415927410125732
 						Buff[x].Ai_hi = float32(s)
 					}
-					if s, err := strconv.ParseFloat(ConfigT.Tcp_serial[i].Set_node[y].Params[x].Low, 64); err == nil {
+					if s, err := strconv.ParseFloat(ConfigT.Tcp_serial[i].Set_node[y].Params[xx].Low, 64); err == nil {
 						fmt.Println(s) // 3.1415927410125732
 						Buff[x].Ai_low = float32(s)
 					}
@@ -171,8 +170,8 @@ func Ser_Init(path string) {
 				indx := ConfigT.Tcp_serial[i].Set_node[y].Index_up     // стартовый индекс
 				addr := ConfigT.Tcp_serial[i].Set_node[y].Address_data // адрес в МК такта
 				for x := Count_DIpar - 16; x < Count_DIpar; x++ {
-					Buff_D[x].Mek_104.Ioa = asdu.InfoObjAddr(int(indx) + x + 10000) // делаем адресацию как в модбасе инпутрегистры
-					Buff_D[x].Mod_adress = int(addr) + x                            // адрес модбаса в МК
+					Buff_D[x].Mek_104.Ioa = asdu.InfoObjAddr(int(indx) + x) // делаем адресацию как в модбасе инпутрегистры
+					Buff_D[x].Mod_adress = int(addr) + x                    // адрес модбаса в МК
 					Buff_D[x].ID = int(indx) + x
 					Buff_D[x].Mek_104.Time = time.Now() // номер параметр в массиве
 				}
@@ -231,8 +230,6 @@ func read_mod() {
 	for {
 		for i := 0; i < Count_Anpar; i++ {
 			Buff[i].Decod_ACP_Ing(modbus_mk.Buff[i].Val)
-			Buff[i].Up_Val = true
-			//fmt.Printf("update values par true", time.Now(), " time \n")
 		}
 		for i := 0; i < Count_DIpar; i++ {
 			if Buff_D[i].Mek_104.Value != modbus_mk.Buff_D[i].Val {
@@ -280,7 +277,8 @@ func (sf *Server) ListenAndServer(addr string) {
 	//Инициализация сервера МЭК104 переменных
 	//asdu.Par_send = Ser_Init("config.toml")
 
-	go modbus_mk.Modbus_up()
+	modbus_mk.Modbus_up()
+	//go modbus_mk.Modbus_up()
 	time.Sleep(time.Second * 5)
 	go read_mod()
 	//	Buff[0].Mek_104.Value = modbus_mk.Buff[0].Val

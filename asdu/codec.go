@@ -228,14 +228,20 @@ func (sf *BD_params_float) Decod_ACP_Ing(d float32) float32 {
 		sf.Mek_104.Time = time.Now()
 	} else {
 		if d <= 4000 {
-			sf.Mek_104.Value = 0
+			sf.Mek_104.Value = float32((float32(d)-4000)/16000)*(sf.Ai_hi-sf.Ai_low) + sf.Ai_low // переводим в шкалу 0-4095/4мА - 20 мА
 			sf.Mek_104.Qds = 128
 			sf.Mek_104.Time = time.Now()
 		} else {
-			sf.Mek_104.Value = 0
+			sf.Mek_104.Value = float32((float32(d)-4000)/16000)*(sf.Ai_hi-sf.Ai_low) + sf.Ai_low // переводим в шкалу 0-4095/4мА - 20 мА
 			sf.Mek_104.Qds = 1
 			sf.Mek_104.Time = time.Now()
 		}
+	}
+	if sf.Mek_104.Value != sf.Old_Value {
+		sf.Up_Val = true
+		sf.Old_Value = sf.Mek_104.Value
+	} else {
+		sf.Up_Val = false
 	}
 	return sf.Mek_104.Value
 }
