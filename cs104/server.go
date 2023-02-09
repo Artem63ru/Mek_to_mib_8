@@ -157,31 +157,40 @@ func Ser_Init(path string) {
 					Buff[x].ID = x                                                                              // номер параметр в массиве
 					Buff[x].Mek_104.Time = time.Now()                                                           //
 					if s, err := strconv.ParseFloat(ConfigT.Tcp_serial[i].Set_node[y].Params[xx].Hi, 64); err == nil {
-						fmt.Println(s) // 3.1415927410125732
+						//	fmt.Println(s) // 3.1415927410125732
 						Buff[x].Ai_hi = float32(s)
 					}
 					if s, err := strconv.ParseFloat(ConfigT.Tcp_serial[i].Set_node[y].Params[xx].Low, 64); err == nil {
-						fmt.Println(s) // 3.1415927410125732
+						//	fmt.Println(s) // 3.1415927410125732
 						Buff[x].Ai_low = float32(s)
 					}
 				}
 			case 2:
-				Count_DIpar = Count_DIpar + 16                         // количество дискретов
+				//Count_DIpar = Count_DIpar + 16                         // количество дискретов
 				indx := ConfigT.Tcp_serial[i].Set_node[y].Index_up     // стартовый индекс
 				addr := ConfigT.Tcp_serial[i].Set_node[y].Address_data // адрес в МК такта
-				for x := Count_DIpar - 16; x < Count_DIpar; x++ {
-					Buff_D[x].Mek_104.Ioa = asdu.InfoObjAddr(int(indx) + x) // делаем адресацию как в модбасе инпутрегистры
-					Buff_D[x].Mod_adress = int(addr) + x                    // адрес модбаса в МК
-					Buff_D[x].ID = int(indx) + x
-					Buff_D[x].Mek_104.Time = time.Now() // номер параметр в массиве
+				for x := 0; x < 16; x++ {
+					Buff_D[x+Count_DIpar].Mek_104.Ioa = asdu.InfoObjAddr(int(indx) + x) // делаем адресацию как в модбасе инпутрегистры
+					Buff_D[x+Count_DIpar].Mod_adress = int(addr) + x                    // адрес модбаса в МК
+					Buff_D[x+Count_DIpar].ID = int(indx) + x
+					Buff_D[x+Count_DIpar].Mek_104.Time = time.Now() // номер параметр в массиве
 				}
+				Count_DIpar = Count_DIpar + 16
 			case 3:
-				indx := ConfigT.Tcp_serial[i].Set_node[y].Index_up             // стартовый индекс
-				addr := ConfigT.Tcp_serial[i].Set_node[y].Address_data         // адрес в МК такта
-				Buff_KR[Count_DOpar].Mek_104.Ioa = asdu.InfoObjAddr(int(indx)) // делаем адресацию как в модбасе инпутрегистры
-				Buff_KR[Count_DOpar].Mod_adress = int(addr)                    // адрес модбаса в МК
+				indx := ConfigT.Tcp_serial[i].Set_node[y].Index_up                     // стартовый индекс
+				addr := ConfigT.Tcp_serial[i].Set_node[y].Address_data                 // адрес в МК такта
+				Buff_KR[Count_DOpar].Mek_104_On.Ioa = asdu.InfoObjAddr(int(indx))      // Команда Открыть
+				Buff_KR[Count_DOpar].Mek_104_Off.Ioa = asdu.InfoObjAddr(int(indx) + 1) // Команда Закрыть
+				Buff_KR[Count_DOpar].CRFX.Ioa = asdu.InfoObjAddr(int(indx) - 100)      // Команда сброс ошибок общих
+				Buff_KR[Count_DOpar].FDSX.Ioa = asdu.InfoObjAddr(int(indx) + 1000)     // Информация о сработке одновременно двух противоположных концевиков.
+				Buff_KR[Count_DOpar].FONX.Ioa = asdu.InfoObjAddr(int(indx) + 1100)     // Информация о том, что после подачи команды на открытие не пришёл сигнал с концевика открыт (IONX) за установленное время (STSX).
+				Buff_KR[Count_DOpar].FOFX.Ioa = asdu.InfoObjAddr(int(indx) + 1200)     // Информация о том, что после подачи команды на закрытие не пришёл сигнал с концевика закрыт (IOFX) за установленное время (STSX).
+				Buff_KR[Count_DOpar].FFON.Ioa = asdu.InfoObjAddr(int(indx) + 1400)     // Несанкционированный сход с концевика ЗАКРЫТ (несанкционированное открытие/включение)
+				Buff_KR[Count_DOpar].FFOF.Ioa = asdu.InfoObjAddr(int(indx) + 1500)     // Несанкционированный сход с концевика ОТКРЫТ (несанкционированное закрытие/выключение)
+
+				Buff_KR[Count_DOpar].Mod_adress = int(addr) // адрес модбаса в МК
 				Buff_KR[Count_DOpar].ID = int(ConfigT.Tcp_serial[i].Set_node[y].Address_id)
-				Buff_KR[Count_DOpar].Mek_104.Time = time.Now() // номер параметр в массиве
+				Buff_KR[Count_DOpar].Mek_104_Off.Time = time.Now() // номер параметр в массиве
 				Count_DOpar = Count_DOpar + 1
 			}
 
@@ -227,6 +236,7 @@ func (sf *Server) SetParams(p *asdu.Params) *Server {
 
 // Перевод из Модбаса в МЭК - на уровне буферов
 func read_mod() {
+
 	for {
 		for i := 0; i < Count_Anpar; i++ {
 			Buff[i].Decod_ACP_Ing(modbus_mk.Buff[i].Val)
@@ -238,17 +248,57 @@ func read_mod() {
 				Buff_D[i].Up_Val = true
 			}
 		}
-		for i := 0; i < Count_DOpar; i++ {
-			modbus_mk.Buff_KR[i].KR_sel = Buff_KR[i].Mek_104.Qoc.InSelect
-			modbus_mk.Buff_KR[i].CMD = Buff_KR[i].Mek_104.Value
-			modbus_mk.Buff_KR[i].Num_chanel = Buff_KR[i].ID
-			if Buff_KR[i].Up_Val {
-				modbus_mk.Buff_KR[i].Send_cancel = Buff_KR[i].Up_Val
+		for i := 0; i < Count_DIpar; i++ {
+			if int(Buff_D[i].Mek_104.Ioa) == 10201 {
+				Buff_KR[0].KR_ON = Buff_D[i].Mek_104.Value
+				Buff_KR[0].KR_OF = Buff_D[i+1].Mek_104.Value
+				Buff_KR[1].KR_ON = Buff_D[i+2].Mek_104.Value
+				Buff_KR[1].KR_OF = Buff_D[i+3].Mek_104.Value
+				Buff_KR[2].KR_ON = Buff_D[i+4].Mek_104.Value
+				Buff_KR[2].KR_OF = Buff_D[i+5].Mek_104.Value
+				i = 250
 			}
-			Buff_KR[i].Up_Val = false
-			Buff_KR[i].Mek_104.Value = false
+			for i := 0; i < Count_DOpar; i++ {
+				// Двойное состояние
+				if Buff_KR[i].KR_ON && Buff_KR[i].KR_OF {
+					Buff_KR[i].FDSX.Value = true
+				} else {
+					Buff_KR[i].FDSX.Value = false
+				}
+				// Включение ИМ
+				if Buff_KR[i].KR_ON && Buff_KR[i].COM_ON {
+					Buff_KR[i].Done <- true
+				}
+				// Отключение ИМ
+				if Buff_KR[i].KR_OF && Buff_KR[i].COM_OF {
+					Buff_KR[i].Done <- true
+				}
+				//********************** Несанкционированный сход с концевика ЗАКРЫТ (несанкционированное открытие/включение) **************************
+				if !Buff_KR[i].KR_OF && Buff_KR[i].IOFX_prvs && !Buff_KR[i].COM_ON {
+					Buff_KR[i].FFON.Value = true
+				}
+				if Buff_KR[i].FFON.Value && (Buff_KR[i].CRFX.Value) {
+					Buff_KR[i].FFON.Value = false
+				}
+				//********************** Несанкционированный сход с концевика ОТКРЫТ (несанкционированное закрытие/выключение) **************************
+				if !Buff_KR[i].KR_ON && Buff_KR[i].IONX_prvs && !Buff_KR[i].COM_OF {
+					Buff_KR[i].FFOF.Value = true
+				}
+				if Buff_KR[i].FFOF.Value && (Buff_KR[i].CRFX.Value) {
+					Buff_KR[i].FFOF.Value = false
+				}
+				// Ставить самой последней
+				if Buff_KR[i].CRFX.Value {
+					Buff_KR[i].CRFX.Value = false
+				}
+				Buff_KR[i].IONX_prvs = Buff_KR[i].KR_ON
+				Buff_KR[i].IOFX_prvs = Buff_KR[i].KR_OF
+			}
+
 		}
-		time.Sleep(time.Millisecond * 500) // было 100
+
+		//fmt.Println("Кран 1 ", Buff_KR[0].Mek_104.Ioa)
+		time.Sleep(time.Millisecond * 100) // было 100
 	}
 
 }
@@ -275,11 +325,11 @@ func (sf *Server) ListenAndServer(addr string) {
 	sf.Debug("server run")
 
 	//Инициализация сервера МЭК104 переменных
-	//asdu.Par_send = Ser_Init("config.toml")
+	//asdu.Par_send = Ser_Init("config123.toml")
 
 	modbus_mk.Modbus_up()
 	//go modbus_mk.Modbus_up()
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 1)
 	go read_mod()
 	//	Buff[0].Mek_104.Value = modbus_mk.Buff[0].Val
 	// Работа с БД

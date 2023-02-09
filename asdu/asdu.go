@@ -2,6 +2,7 @@
 package asdu
 
 import (
+	modbus_mk "MEK104/modbus"
 	"fmt"
 	"io"
 	"math/bits"
@@ -100,20 +101,167 @@ type BD_params_KR struct {
 	ID int
 	// Наименование параметра
 	Name string
-	// Описание параметра /адрес/значение/регистры передачи/время для протокола МЭК 104
-	Mek_104 SingleCommandInfo
+	// Описание параметра /адрес/значение/регистры передачи/время для протокола МЭК 104 Открыть
+	Mek_104_On SingleCommandInfo
+	// Описание параметра /адрес/значение/регистры передачи/время для протокола МЭК 104 Закрыть
+	Mek_104_Off SingleCommandInfo
+	// Команда на сброс формируемых ошибок
+	CRFX SingleCommandInfo
 	// Адрес параметра в Modbus устройтвые источника / ноемр регистра
 	Mod_adress int
 	// Время последнего изменения - опционально
 	Uptime time.Time
 	// Флаг изменения сигнала для спародической передачи
 	Up_Val bool
+	//Конечник открытия
+	KR_ON bool
+	//Конечник закрытия
+	KR_OF bool
+	// Команда открытия
+	COM_ON bool
+	// Команда закрытия
+	COM_OF bool
+	//Таймер перестановки крана
+	Tim_com *time.Timer
+	// Время перестановки крана
+	time_in_seconds float32
+	FDSX            SinglePointInfo //	Информация о сработке одновременно двух противоположных концевиков.
+	FONX            SinglePointInfo //	Информация о том, что после подачи команды на открытие не пришёл сигнал с концевика открыт (IONX) за установленное время (STSX).
+	FOFX            SinglePointInfo //	Информация о том, что после подачи команды на закрытие не пришёл сигнал с концевика закрыт (IOFX) за установленное время (STSX).
+	FFON            SinglePointInfo //	Информация об открытии (пропадание концевика закрыт) ИМ без управляющего воздействия
+	FFOF            SinglePointInfo //	Информация о закрытии (пропадание концевика открыт) ИМ без управляющего воздействия
+
+	Done chan bool
+
+	Com_Kran
+
+	IONX_prvs bool
+	IOFX_prvs bool
+}
+
+type Com_Kran interface {
+	C_ON(done <-chan bool) bool
+	C_OF(done <-chan bool) bool
+	FCom_OF(value bool) bool
 }
 
 // Буфер для хранения данных
 type Buffer struct {
 	// Запись о параметре
 	parameter []BD_params_float
+}
+
+// Структура буфера для управления каранами для передачи в МЭК
+type Bufer_KR struct {
+	KR_sel      bool
+	Send_cancel bool
+	CMD         bool
+	Num_chanel  int
+}
+
+// Функция открытия крана по таймеры
+func (k *BD_params_KR) C_ON(done <-chan bool) bool {
+	if k.KR_OF && k.COM_ON {
+		fmt.Print("Выставил команду открыть", k.ID)
+		modbus_mk.Com_tcp_serial(true, false, k.ID)
+		k.Tim_com = time.NewTimer(30 * time.Second) // таймер перестановки
+
+		select {
+		case <-done:
+			k.Tim_com.Stop()
+			fmt.Printf("Прервано закрытие %d \n", k.time_in_seconds)
+			k.COM_ON = false
+			modbus_mk.Com_tcp_serial(false, true, k.ID)
+			break
+		case <-k.Tim_com.C:
+			if !k.COM_ON {
+				fmt.Printf("Кран ошибка открытия не открылся %d \n", k.time_in_seconds)
+			}
+			k.COM_ON = false
+			k.FONX.Value = true
+			modbus_mk.Com_tcp_serial(false, true, k.ID)
+			// If main() finishes before the 60 second timer, we won't get here
+			fmt.Printf("не включился за заданное время %d \n", k.Mek_104_On.Ioa)
+			break
+		}
+
+	} else {
+		k.COM_ON = false
+		k.Mek_104_On.Value = false
+		fmt.Printf("Ошибка открытия %d \n", k.time_in_seconds)
+	}
+	return k.COM_ON
+}
+
+// Функция закрытия крана по таймеру
+func (k *BD_params_KR) C_OF(done <-chan bool) bool {
+	if k.KR_ON && k.COM_OF {
+		fmt.Print("Выставил команду")
+		modbus_mk.Com_tcp_serial(true, false, k.ID+1)
+		k.Tim_com = time.NewTimer(20 * time.Second) // таймер перестановки
+
+		select {
+		case <-done:
+			k.Tim_com.Stop()
+			fmt.Printf("Прервано закрытие %d \n", k.time_in_seconds)
+			k.COM_OF = false
+
+			modbus_mk.Com_tcp_serial(false, true, k.ID+1)
+			break
+		case <-k.Tim_com.C:
+			if !k.COM_OF {
+				fmt.Printf("Кран ошибка закрытия не закрылся %d \n", k.time_in_seconds)
+			}
+			k.COM_OF = false
+			modbus_mk.Com_tcp_serial(false, true, k.ID+1)
+			// If main() finishes before the 60 second timer, we won't get here
+			k.FOFX.Value = true
+			fmt.Printf("Кран не отключился за заданное время %d \n", k.Mek_104_Off.Ioa)
+			break
+		}
+
+	} else {
+		k.COM_OF = false
+		k.Mek_104_Off.Value = false
+		fmt.Printf("Ошибка закрытия %d \n", k.time_in_seconds)
+	}
+	return k.COM_OF
+}
+
+// Функция открытия и закрытия крана с отслеживанием концевиков
+func (k BD_params_KR) FCom_OF(value bool) bool {
+	if value {
+		if !k.COM_OF {
+			k.COM_OF = true
+			//Buff_KR[i].Mek_104.Value = true
+			done := make(chan bool, 1)
+			k.Done = done
+			go k.C_OF(done) // запуск команды
+		}
+	} else {
+		if k.COM_OF {
+			k.Done <- true
+			fmt.Println("Кран сброшен ", k.COM_OF)
+			k.COM_OF = false
+
+		}
+		k.Up_Val = true
+	}
+	go func() {
+		for {
+			if k.KR_OF && k.COM_OF {
+				k.Done <- true
+				fmt.Println("Кран Закрыт ", k.COM_OF)
+				k.COM_OF = false
+
+			}
+			if !k.COM_OF {
+				break
+			}
+		}
+
+	}()
+	return k.COM_OF
 }
 
 // Valid returns the validation result of params.

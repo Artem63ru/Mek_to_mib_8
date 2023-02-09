@@ -528,40 +528,56 @@ func (sf *SrvSession) serverHandler(asduPack *asdu.ASDU) error {
 		}
 		_copyASDU := asduPack.Clone()
 		ioa := asduPack.GetSingleCmd()
-		//	asduPack.AppendInfoObjAddr()
-		//	asduPack.q
 		var cmd bool
-		Timer2 := time.NewTimer(time.Second * 1)
-		Timer2.Stop()
 		for i := 0; i < Count_DOpar; i++ {
-			if ioa.Ioa == Buff_KR[i].Mek_104.Ioa {
-				if ioa.Qoc.InSelect {
-					Buff_KR[i].Mek_104.Qoc.InSelect = true
-					fmt.Println("Кран выбран", Buff_KR[i].Mek_104.Qoc.InSelect)
-				} else {
-					if ioa.Value && Buff_KR[i].Mek_104.Qoc.InSelect {
-						Buff_KR[i].Mek_104.Value = true
-						fmt.Println("Кран установлен в положение команды", Buff_KR[i].Mek_104.Value)
-						Timer2.Reset(time.Second * 60)
-						go Timer_OFF(i, Timer2)
+			if ioa.Ioa == Buff_KR[i].Mek_104_On.Ioa { // Команда открытия пришла с верху
+				if ioa.Value && Buff_KR[i].KR_OF {
+					if !Buff_KR[i].COM_ON {
+						Buff_KR[i].COM_ON = true
+						fmt.Print("Защел в команду")
+						//Buff_KR[i].Mek_104.Value = true
+						done := make(chan bool, 1)
+						Buff_KR[i].Done = done
+						go Buff_KR[i].C_ON(Buff_KR[i].Done) // запуск команды
 					}
-				}
-				if asduPack.Coa.Cause == asdu.Deactivation {
-					if Buff_KR[i].Mek_104.Qoc.InSelect {
-						Buff_KR[i].Mek_104.Value = false
-						Buff_KR[i].Mek_104.Qoc.InSelect = false
-						Buff_KR[i].Up_Val = true
-						fmt.Println("Кран сброшен", Buff_KR[i].Mek_104.Value)
-						stop := Timer2.Stop()
-						if stop {
-							fmt.Println("Stop Timer time  = ", time.Now())
-						}
-					}
-				}
+				} else { // если пришел 0 это сброс команды
+					if Buff_KR[i].COM_ON {
+						Buff_KR[i].Done <- true
+						fmt.Println("Кран сброшен ", Buff_KR[i].Mek_104_On.Value)
+						Buff_KR[i].COM_ON = false
 
+					}
+				}
+				cmd = true
+			}
+			if ioa.Ioa == Buff_KR[i].Mek_104_Off.Ioa { // Команда закрытия пришла с верху
+				if ioa.Value && Buff_KR[i].KR_ON {
+					if !Buff_KR[i].COM_OF {
+						Buff_KR[i].COM_OF = true
+						fmt.Print("Защел в команду")
+						//Buff_KR[i].Mek_104.Value = true
+						done := make(chan bool, 1)
+						Buff_KR[i].Done = done
+						go Buff_KR[i].C_OF(Buff_KR[i].Done) // запуск команды
+					}
+				} else { // если пришел 0 это сброс команды
+					if Buff_KR[i].COM_OF {
+						Buff_KR[i].Done <- true
+						fmt.Println("Кран сброшен ", Buff_KR[i].Mek_104_Off.Value)
+						Buff_KR[i].COM_OF = false
+
+					}
+				}
+				cmd = true
+			}
+			if ioa.Ioa == Buff_KR[i].CRFX.Ioa {
+				if ioa.Value {
+					Buff_KR[i].CRFX.Value = true
+				}
 				cmd = true
 			}
 		}
+
 		if !cmd {
 			return _copyASDU.SendReplyMirror(sf, asdu.UnknownIOA)
 		}
@@ -625,27 +641,23 @@ func (sf *SrvSession) Sparodic_send(c asdu.Connect) {
 				Buff_D[i].Up_Val = false
 			}
 		}
-		time.Sleep(time.Millisecond * 500)
+		for i := 0; i < Count_DOpar; i++ {
+			//if Buff_KR[i].FDSX.Value {
+			asdu.SingleCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, 1, Buff_KR[i].FDSX)
+			//}
+			//if Buff_KR[i].FFON.Value {
+			asdu.SingleCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, 1, Buff_KR[i].FFON)
+			//}
+			//if Buff_KR[i].FFOF.Value {
+			asdu.SingleCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, 1, Buff_KR[i].FFOF)
+			//}
+			//if Buff_KR[i].FONX.Value {
+			asdu.SingleCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, 1, Buff_KR[i].FONX)
+			//}
+			//if Buff_KR[i].FOFX.Value {
+			asdu.SingleCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, 1, Buff_KR[i].FOFX)
+			//}
+		}
+		time.Sleep(time.Second * 1)
 	}
-}
-
-// Отключение команды по таймеру
-func Timer_OFF(i int, Timer2 *time.Timer) {
-	//Timer_off := time.NewTimer(20 * time.Second)
-	<-Timer2.C
-	fmt.Println("Timer 2 expired   time  = ", time.Now())
-	if Buff_KR[i].Mek_104.Qoc.InSelect {
-		Buff_KR[i].Mek_104.Value = false
-		Buff_KR[i].Mek_104.Qoc.InSelect = false
-		Buff_KR[i].Up_Val = true
-		fmt.Println("Кран сброшен", Buff_KR[i].Mek_104.Value, "    time  = ", time.Now())
-	}
-	//<-Timer_off.C
-	//fmt.Println("Timer Крана остановлен", Buff_KR[i].ID)
-	//if Buff_KR[i].Mek_104.Qoc.InSelect {
-	//	Buff_KR[i].Mek_104.Value = false
-	//	Buff_KR[i].Mek_104.Qoc.InSelect = false
-	//	Buff_KR[i].Up_Val = true
-	//	fmt.Println("Кран сброшен", Buff_KR[i].Mek_104.Value)
-	//}
 }

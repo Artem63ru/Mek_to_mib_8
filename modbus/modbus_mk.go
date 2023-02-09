@@ -217,387 +217,47 @@ var kr KR_registrs_cils
 // запрос необходимых данных от устройства
 // chanel - указатель на структуру канала опроса устройств
 // sever - сервер modbus для записи данныых опроса устройств
-func req_serial(server *mbserver.Server, chanel *Set_serial, cc <-chan struct{}, inc <-chan inc_req) {
-	var xx inc_req
-	handler := modbus.NewRTUClientHandler(chanel.Port_tty) // с версии 0.17 пишем порты напямую, можно COM-порты пускать под Wndows
 
-	//	handler.RS485.Enabled = true
-	handler.RS485.Enabled = false // не может быть true - драйвер для allwinner H3 не может это сделать, а ch344 делает это аппаратно
-	handler.BaudRate = int(chanel.Baud)
-	//	handler.DataBits = 8
-	handler.DataBits = int(chanel.Bits)
-	//	handler.Parity = "N"
-	handler.Parity = chanel.Parity
-	//	handler.StopBits = 1
-	handler.StopBits = int(chanel.Stop)
+// ****************************************************************************************
+// функция управления кранами
+func Com_tcp_serial(CMD bool, Send_Cansel bool, Numd int) {
+	//var timer1 time.Timer
+	//handler := modbus.NewRTUClientHandler(chanel.Port_tty) // с версии 0.17 пишем порты напямую, можно COM-порты пускать под Wndows
+	//handler := modbus.NewTCPClientHandler("172.16.205.141:502") // с версии 0.17 пишем порты напямую, можно COM-порты пускать под Wndows
+	handler := modbus.NewTCPClientHandler("127.0.0.1:502") // с версии 0.17 пишем порты напямую, можно COM-порты пускать под Wndows
+	handler.IdleTimeout = 10                               //  тайл-аут на операции
 	handler.SlaveId = 1
-	handler.Timeout = time.Millisecond * time.Duration(200)
+
 	err := handler.Connect()
 	defer handler.Close()
+
 	if err != nil {
 		// пока нет расширеннной обработки ошибки запроса - просто выход
 		if Debug {
 			fmt.Printf(err.Error())
 		}
-		Log.Printf("**ERROR** REQ: No open Serial Port chanel: '%s'\r\n", chanel.Port_tty)
+		//	Log.Printf("**ERROR** REQ: No open Serial Port chanel: '%s'\r\n", chanel.Ip)
 		Log.Printf(err.Error())
 		os.Exit(-1) // критическая ошибка !!!!!
 		//return // просто выходим из подпрограмы опроса канала
-	}
+	} else {
+		client := modbus.NewClient(handler)
+		result4, err3 := client.ReadHoldingRegisters(uint16(30), uint16(1)) // Вычитываем что в регистре управления DO
+		err_log(err3, result4)
+		if CMD {
 
-	client := modbus.NewClient(handler)
+			result5, err3 := client.WriteSingleRegister(uint16(32768), binary.BigEndian.Uint16(result4)|uint16(1<<Numd))
+			err_log(err3, result5)
 
-	for {
-		// пока обработка только одной ноды оз конфигурации
-		for count := 0; count < int(chanel.Count_node); count++ {
-			if handler.SlaveId != chanel.Set_node[count].Address_id {
-				// надо опробывать без закрытия handler
-				//				handler.Close()
-				handler.SlaveId = chanel.Set_node[count].Address_id
-				//				handler.Connect()
-				//				defer handler.Close()
-				client = modbus.NewClient(handler) // перезапустим клиента
-			}
-			switch chanel.Set_node[count].Command {
-			// *************************************
-			case 04:
-				result4, err2 := client.ReadInputRegisters(uint16(chanel.Set_node[count].Address_data), uint16(chanel.Set_node[count].Data_length))
-				if err2 != nil {
-					// пока нет расширеннной обработки ошибки запроса - просто выход - пора расширять
-					Log.Printf("**ERROR** Read Input Register Chanel: %s\n", chanel.Port_tty)
-					Log.Printf(err2.Error())
-					if Debug {
-						fmt.Printf(err2.Error())
-					}
-					InputRegStatus[chanel.Set_node[count].Index_up].Status = 0x10     // ошибка, чегото там, пока не декодируем
-					InputRegStatus[chanel.Set_node[count].Index_up].Time = time.Now() // время последней ошибки
+		}
+		if Send_Cansel {
 
-					//					os.Exit(-1) // пока выходим, не делаем обработку
-				} else {
-					if Debug {
-						fmt.Printf("Chanel: %s,\tRead Input Regires(4):\t\tnode %d: %v\n", chanel.Port_tty, count, result4)
-					}
-					// можно сохранить в памяти сервера
-					//					_, err := client_local.WriteMultipleRegisters(uint16(chanel.Set_node[count].Index_up), uint16(chanel.Set_node[count].Data_length), result4)
-					new_data := mbserver.BytesToUint16(result4)
-					for ii := 0; ii < int(chanel.Set_node[count].Data_length); ii++ {
-						server.InputRegisters[ii+int(chanel.Set_node[count].Index_up)] = new_data[ii]
-					}
-				}
-				// *************************************
-			case 01:
-				result1, err2 := client.ReadCoils(uint16(chanel.Set_node[count].Address_data), uint16(chanel.Set_node[count].Data_length))
-				if err2 != nil {
-					// пока нет расширеннной обработки ошибки запроса - просто выход !!!!!
-					Log.Printf("**ERROR** Read Coils Chanel: %s", chanel.Port_tty)
-					Log.Printf(err2.Error())
-					fmt.Printf(err2.Error())
-					os.Exit(-1)
-				} else {
-					if Debug {
-						fmt.Printf("Chanel: %s,\tRead Coils(1):\t\t\tnode %d: %v\n", chanel.Port_tty, count, result1)
-					}
-					// можно сохранить в памяти сервера
-					//					_, err := client_local.WriteMultipleCoils(uint16(chanel.Set_node[count].Index_up), uint16(chanel.Set_node[count].Data_length), result2)
-					new_data := result1
-					for i := 0; i < len(new_data); i++ {
-						for b := 0; b < 8; b++ {
-							if (b + i*8) < int(chanel.Set_node[count].Data_length) {
-								if (new_data[i] & byte(1<<b)) != 0 {
-									server.Coils[i*8+b+int(chanel.Set_node[count].Index_up)] = 1
-								} else {
-									server.Coils[i*8+b+int(chanel.Set_node[count].Index_up)] = 0
-								}
-							} else {
-								goto OutLoop2
-							}
-						}
-					}
-				OutLoop2:
-				}
-				// *************************************
-			case 02:
-				result2, err2 := client.ReadDiscreteInputs(uint16(chanel.Set_node[count].Address_data), uint16(chanel.Set_node[count].Data_length))
-				if err2 != nil {
-					// пока нет расширеннной обработки ошибки запроса - просто выход !!!!!
-					Log.Printf("**ERROR** Read Input Discrete Chanel: %s", chanel.Port_tty)
-					Log.Printf(err2.Error())
-					fmt.Printf(err2.Error())
-					os.Exit(-1)
-				} else {
-					if Debug {
-						fmt.Printf("Chanel: %s,\tRead Input Discretes(2):\tnode %d: %v\n", chanel.Port_tty, count, result2)
-					}
-					// можно сохранить в памяти сервера
-					//	_, err := client_local.WriteMultipleCoils(uint16(chanel.Set_node[count].Index_up), uint16(chanel.Set_node[count].Data_length), result2)
-					new_data := result2
-					/*	for ii := 0; ii < int(chanel.Set_node[count].Data_length); ii++ {
-						//	server.DiscreteInputs[ii+int(chanel.Set_node[count].Index_up)] = new_data[ii]
-							server.DiscreteInputs[ii+int(chanel.Set_node[count].Index_up)] = result2[ii]
-						}
-					*/
-					for i := 0; i < len(new_data); i++ {
-						for b := 0; b < 8; b++ {
-							if (b + i*8) < int(chanel.Set_node[count].Data_length) {
-								if (new_data[i] & byte(1<<b)) != 0 {
-									server.DiscreteInputs[i*8+b+int(chanel.Set_node[count].Index_up)] = 1
-								} else {
-									server.DiscreteInputs[i*8+b+int(chanel.Set_node[count].Index_up)] = 0
-								}
-							} else {
-								goto OutLoop1
-							}
-						}
-					}
-				OutLoop1:
-				}
-				// *************************************
+			result5, err3 := client.WriteSingleRegister(uint16(32768), binary.BigEndian.Uint16(result4)^uint16(1<<Numd))
+			err_log(err3, result5)
 
-			case 03:
-				result3, err2 := client.ReadHoldingRegisters(uint16(chanel.Set_node[count].Address_data), uint16(chanel.Set_node[count].Data_length))
-				if err2 != nil {
-					// пока нет расширеннной обработки ошибки запроса - просто выход !!!!!
-					Log.Printf("**ERROR** Read Holding Register Chanel: %s", chanel.Port_tty)
-					Log.Printf(err2.Error())
-					fmt.Printf(err2.Error())
-					os.Exit(-1)
-				} else {
-					if Debug {
-						//						fmt.Printf(": node%d: %v\n", count, resulTimet3)
-						fmt.Printf("Chanel: %s,\tRead Holding Registers(3):\tnode %d: %v\n", chanel.Port_tty, count, result3)
-					}
-					// можно сохранить в памяти сервера
-					//	_, err := client_local.WriteMultipleRegisters(uint16(chanel.Set_node[count].Index_up), uint16(chanel.Set_node[count].Data_length), result3)
-					new_data := mbserver.BytesToUint16(result3)
-					for ii := 0; ii < int(chanel.Set_node[count].Data_length); ii++ {
-						server.HoldingRegisters[ii+int(chanel.Set_node[count].Index_up)] = new_data[ii]
-					}
-					// if err != nil {
-					//	fmt.Printf(err.Error())
-					//	}
-				}
-			default:
-				// пока ошибки toml на уровне описания ноды не обрабатываю
-				Log.Printf("**ERROR**, Chanel %s, error to toml file, code Command in node %d\r\n", chanel.Port_tty, count)
-				os.Exit(-1) // ошибка критическия надо править toml !!!!!
-			}
-			// time.Sleep(time.Millisecond * time.Duration(config.Tty_serial[0].Time_loop)) // время цикла запроса передать из config
-			select {
-			case xx = <-inc: // принмаем данные на обработку
-				if Debug {
-					fmt.Printf("\t----- Execute COMMAND: '%d' for chanel '%s'\r\n", xx.Command, chanel.Port_tty)
-				}
-				// можно  разбирать, что выдавать и куда
-				switch xx.Command {
-				case 05: // Write Single Coils
-					if handler.SlaveId != xx.Address_id {
-						//						handler.Close()
-						handler.SlaveId = xx.Address_id
-						//						handler.Connect()
-						//						defer handler.Close()
-						client = modbus.NewClient(handler) // перезапустим клиента
-					}
-					write5, err := client.WriteSingleCoil(xx.Address_data, xx.Data[0])
-					CoilsRed[xx.Pos].Time = time.Now() // последнее время записи в Coils
-					if err != nil {
-						// ошибка записи Single Copils
-						Log.Printf("**ERROR** Write Single Coils, Chanel: %s AddrID: %d\r\n", chanel.Port_tty, xx.Address_id)
-						Log.Printf("**data Responce: %v", write5)
-						CoilsRed[xx.Pos].Status = 2 // ошибка записи в !!!!!
-					}
-				case 06: // Write Single Holding Regster
-					if handler.SlaveId != xx.Address_id {
-						//						handler.Close()
-						handler.SlaveId = xx.Address_id
-						//						handler.Connect()
-						//						defer handler.Close()
-						client = modbus.NewClient(handler) // перезапустим клиента
-					}
-					write6, err := client.WriteSingleRegister(xx.Address_data, xx.Data[0])
-					HRegRed[xx.Pos].Time = time.Now() // последнее время записи в Coils
-					if err != nil {
-						// ошибка записи Single Holding REgister
-						Log.Printf("**ERROR** Write Single Holding Register, Chanel: %s AddrID: %d\r\n", chanel.Port_tty, xx.Address_id)
-						Log.Printf("**data Responce: %v", write6)
-						HRegRed[xx.Pos].Status = 2 // ошибка записи - надо ввести   типизацию кодов !!!!!
-					} else {
-
-					}
-				case 15: // Write  Multiple Coils
-				case 16: // Write Multiple Holding Regster
-				default: // непонятная команда пришла в канал
-				}
-			default:
-			}
-		} //for
-		// неблокирующий прием данных из канала
-		select {
-		case <-cc: // получили сигнал на завершение
-			break
-			//default: // обязательно для получения неблокирующий функции
-			//time.Sleep(time.Millisecond * time.Duration(config.Tty_serial[0].Time_loop)) // время цикла запроса передать из config
 		}
 	}
 }
-
-//func (s *Server) RegisterFunctionHandler(funcCode uint8, function func(*Server, Framer) ([]byte, *Exception)
-
-// ***************************************************************************************
-// функция обработки записи еденичного Coil (5)
-func WrSingleCoilsOverr(server *mbserver.Server) {
-	var xx KR_registrs_cils
-	server.RegisterFunctionHandler(5,
-		func(s *mbserver.Server, frame mbserver.Framer) ([]byte, *mbserver.Exception) {
-			data1 := frame.GetData()
-			register := int(binary.BigEndian.Uint16(data1[0:2])) // адрес регистра
-			//numRegs := int(binary.BigEndian.Uint16(data1[2:4]))  // это как раз данные для записи 0xFF00 - on, 0x0000 - off
-			xx.Address_id = CoilsRed[register].Address_id     // адрес устройства на шине modbus
-			xx.Address_data = CoilsRed[register].Address_data // адрес данных в устройстве
-			xx.Time = time.Now()
-			//if numRegs > 0 {
-			//	s.Coils[register] = 1
-			//	switch register {
-			//	// *************************************
-			//	case int(config.Tcp_serial[0].Set_node[5].Index_up):
-			//		fmt.Printf("\t>>>>> Сеанс управление закрыт: %v\r\n", uint8(register))
-			//		kr.sesion = 1
-			//	case int(config.Tcp_serial[0].Set_node[5].Index_up - 6):
-			//		fmt.Printf("\t>>>>> Предварительная закрыть: %v\r\n", uint8(register))
-			//		kr.pred = 2
-			//	case int(config.Tcp_serial[0].Set_node[5].Index_up - 5):
-			//		fmt.Printf("\t>>>>> Управление краном закрыть: %v\r\n", uint8(register))
-			//		kr.TU = 2
-			//	}
-			//
-			//} else {
-			//	s.Coils[register] = 0
-			//	switch register {
-			//	// *************************************
-			//	case int(config.Tcp_serial[0].Set_node[5].Index_up):
-			//		fmt.Printf("\t>>>>> Сеанс управление открыт: %v\r\n", uint8(register))
-			//		kr.sesion = 0
-			//	case int(config.Tcp_serial[0].Set_node[5].Index_up - 6):
-			//		fmt.Printf("\t>>>>> Предварительная открыть: %v\r\n", uint8(register))
-			//		kr.pred = 1
-			//	case int(config.Tcp_serial[0].Set_node[5].Index_up - 5):
-			//		fmt.Printf("\t>>>>> Управление краном открыть: %v\r\n", uint8(register))
-			//		kr.TU = 1
-			//	}
-			//}
-			return data1, &mbserver.Success
-		})
-}
-
-// ***************************************************************************************
-// функция обработки записи цепочки Coilы (15)
-func WrMultipleCoilsOverr(server *mbserver.Server) {
-	server.RegisterFunctionHandler(15,
-		func(s *mbserver.Server, frame mbserver.Framer) ([]byte, *mbserver.Exception) {
-			data1 := frame.GetData()
-			register := int(binary.BigEndian.Uint16(data1[0:2]))
-			numRegs := int(binary.BigEndian.Uint16(data1[2:4]))
-			//			endRegister := register + numRegs
-			//		register, numRegs, endRegister := frame.registerAddressAndNumber()
-			data := make([]byte, 4)
-			data[0] = CoilsRed[register].Address_id
-			data[1] = 5 // запись еденичного Coils
-			data[2] = byte(CoilsRed[register].Address_data)
-			if Debug {
-				fmt.Printf("\t>>>>> Write Multiple Coils: %v\r\n", data1)
-				//				fmt.Printf("register: %d, numRegs: 0x%2F, endRegister %d\r\n", register, numRegs, endRegister)
-				h := fmt.Sprintf("%04x", numRegs)
-				fmt.Printf("\t>>>>> register: %d, data: 0x%s\r\n", register, h)
-			}
-			/*
-				dataSize := numRegs / 8
-				data := make([]byte, 1+dataSize)
-				data[0] = byte(dataSize)
-				for i := range s.DiscreteInputs[register:endRegister] {
-					// Return all 1s, regardless of the value in the DiscreteInputs array.
-					shift := uint(i) % 8
-					data[1+i/8] |= byte(1 << shift)
-				}
-			*/
-			return data1, &mbserver.Success
-		})
-}
-
-// ***************************************************************************************
-// функция обработки записи еденичного Register (6)
-func WrSingleRegisterOverr(server *mbserver.Server) {
-	var xx inc_req
-	server.RegisterFunctionHandler(6,
-		func(s *mbserver.Server, frame mbserver.Framer) ([]byte, *mbserver.Exception) {
-			data1 := frame.GetData()
-			register := int(binary.BigEndian.Uint16(data1[0:2]))
-			numRegs := int(binary.BigEndian.Uint16(data1[2:4]))
-			endRegister := register + numRegs
-			//		register, numRegs, endRegister := frame.registerAddressAndNumber()
-			xx.Address_id = HRegRed[register].Address_id     // адрес устройства на щине modbus
-			xx.Command = 6                                   // запись еденичного Holding Register
-			xx.Address_data = HRegRed[register].Address_data // адрес данных в устройстве
-			xx.Pos = uint16(register)                        // позиция в табюлице реверса для записи статусов
-			xx.Data[0] = uint16(numRegs)                     // данные по записи
-			xx.Data_length = 1                               // у нас один регистр
-			HRegRed[register].icc <- xx                      // перезадим данные в нужную нам горутину
-
-			if Debug {
-				fmt.Printf("\t>>>>> Write Single Registers: %v\r\n", data1)
-				fmt.Printf("\t>>>>> register: %d, numRegs: %d, endRegister %d\r\n", register, numRegs, endRegister)
-			}
-			//			нeужен свой расклад, что, куда писать из массива CoilsRed
-
-			//			dataSize := numRegs / 8
-			//			data := make([]byte, 1+dataSize)
-			//			data[0] = byte(dataSize)
-			//			for i := range s.DiscreteInputs[register:endRegister] {
-			//				// Return all 1s, regardless of the value in the DiscreteInputs array.
-			//				shift := uint(i) % 8
-			//				data[1+i/8] |= byte(1 << shift)
-			//			}
-			return data1, &mbserver.Success
-		})
-}
-
-// ***************************************************************************************
-// функция обработки записи цепочки Registers (16)
-func WrMultipleRegisterOverr(server *mbserver.Server) {
-	server.RegisterFunctionHandler(16,
-		func(s *mbserver.Server, frame mbserver.Framer) ([]byte, *mbserver.Exception) {
-			data1 := frame.GetData()
-			register := int(binary.BigEndian.Uint16(data1[0:2]))
-			numRegs := int(binary.BigEndian.Uint16(data1[2:4]))
-			endRegister := register + numRegs
-			//		register, numRegs, endRegister := frame.registerAddressAndNumber()
-			if endRegister > 65535 { // слишком большай адрес
-				return []byte{}, &mbserver.IllegalDataAddress
-			}
-			data := make([]byte, 4)
-			data[0] = CoilsRed[register].Address_id
-			data[1] = 5 // запись еденичного Coils
-			data[2] = byte(CoilsRed[register].Address_data)
-			if Debug {
-				fmt.Printf("\t>>>>> Write Multiple Hilding Registers: %v\r\n", data1)
-				fmt.Printf("\t>>>>> register: %d, numRegs: %d, endRegister %d\r\n", register, numRegs, endRegister)
-				//				h := fmt.Sprintf("%04x", numRegs)
-				//				fmt.Printf("\t>>>>>register: %d, data: 0x%s\r\n", register, h)
-			}
-			/*
-				dataSize := numRegs / 8
-				data := make([]byte, 1+dataSize)
-				data[0] = byte(dataSize)
-				for i := range s.DiscreteInputs[register:endRegister] {
-					// Return all 1s, regardless of the value in the DiscreteInputs array.
-					shift := uint(i) % 8
-					data[1+i/8] |= byte(1 << shift)
-				}
-			*/
-			return data1, &mbserver.Success
-		})
-}
-
-//****************************************************************************************
-// функция управления кранами
 
 // ***************************************************************************************
 // з
@@ -662,68 +322,7 @@ func req_tcp_serial(chanel *Set_tcp, cc <-chan struct{}, inc <-chan inc_req, arr
 						}
 					}
 					// *************************************
-				case 01: // Для такт у не нужна
-					result1, err2 := client.ReadCoils(uint16(chanel.Set_node[count].Address_data), uint16(chanel.Set_node[count].Data_length))
-					if err2 != nil {
-						// пока нет расширеннной обработки ошибки запроса - просто выход !!!!!
-						Log.Printf("**ERROR** Read Coils Chanel: %s", chanel.Ip)
-						Log.Printf(err2.Error())
-						fmt.Printf(err2.Error())
-						os.Exit(-1)
-					} else {
-						if Debug {
-							fmt.Printf("Chanel: %s,\tRead Coils(1):\t\t\tnode %d: %v\n", chanel.Ip, count, result1)
-						}
-						// можно сохранить в памяти сервера
-						//					_, err := client_local.WriteMultipleCoils(uint16(chanel.Set_node[count].Index_up), uint16(chanel.Set_node[count].Data_length), result2)
-						new_data := result1
-						for i := 0; i < len(new_data); i++ {
-							for b := 0; b < 8; b++ {
-								if (b + i*8) < int(chanel.Set_node[count].Data_length) {
-									if (new_data[i] & byte(1<<b)) != 0 {
-										//						server.Coils[i*8+b+int(chanel.Set_node[count].Index_up)] = 1
-									} else {
-										//						server.Coils[i*8+b+int(chanel.Set_node[count].Index_up)] = 0
-									}
-								} else {
-									goto OutLoop2
-								}
-							}
-						}
-					OutLoop2:
-					}
-					// *************************************
-				case 02:
-					result2, err2 := client.ReadDiscreteInputs(uint16(chanel.Set_node[count].Address_data), uint16(chanel.Set_node[count].Data_length))
-					if err2 != nil {
-						// пока нет расширеннной обработки ошибки запроса - просто выход !!!!!
-						Log.Printf("**ERROR** Read Input Discretes Chanel: %s", chanel.Ip)
-						Log.Printf(err2.Error())
-						fmt.Printf(err2.Error())
-						os.Exit(-1)
-					} else {
-						if Debug {
-							fmt.Printf("Chanel: %s,\tRead Input Discretes(2):\tnode %d: %v\n", chanel.Ip, count, result2)
-						}
-						// можно сохранить в памяти сервера
-						//	_, err := client_local.WriteMultipleCoils(uint16(chanel.Set_node[count].Index_up), uint16(chanel.Set_node[count].Data_length), result2)
-						new_data := result2
-						for i := 0; i < len(new_data); i++ {
-							for b := 0; b < 8; b++ {
-								if (b + i*8) < int(chanel.Set_node[count].Data_length) {
-									if (new_data[i] & byte(1<<b)) != 0 {
-										//						server.DiscreteInputs[i*8+b+int(chanel.Set_node[count].Index_up)] = 1
-									} else {
-										//						server.DiscreteInputs[i*8+b+int(chanel.Set_node[count].Index_up)] = 0
-									}
-								} else {
-									goto OutLoop1
-								}
-							}
-						}
-					OutLoop1:
-					}
-					// *************************************
+
 				case 03:
 
 					result3, err2 := client.ReadHoldingRegisters(uint16(chanel.Set_node[count].Address_data), uint16(chanel.Set_node[count].Data_length))
@@ -777,20 +376,13 @@ func req_tcp_serial(chanel *Set_tcp, cc <-chan struct{}, inc <-chan inc_req, arr
 						result4, err3 := client.ReadHoldingRegisters(uint16(30), uint16(1)) // Вычитываем что в регистре управления DO
 						err_log(err3, result4)
 
-						if Buff_KR[ii].KR_sel && Buff_KR[ii].CMD { // исполняем команду
+						if Buff_KR[ii].CMD { // исполняем команду
 
 							result5, err3 := client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), binary.BigEndian.Uint16(result4)|uint16(1<<Buff_KR[ii].Num_chanel))
 							err_log(err3, result5)
 							Buff_KR[ii].KR_sel = false
 							Buff_KR[ii].CMD = false
-							//timer1 := time.AfterFunc(time.Second*10, func() {
-							//	result4, err3 := client.ReadHoldingRegisters(uint16(30), uint16(1)) // Вычитываем что в регистре управления DO
-							//	err_log(err3, result4)
-							//	result5, err3 := client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), binary.BigEndian.Uint16(result4)^uint16(1<<Buff_KR[ii].Num_chanel))
-							//	err_log(err3, result5)
-							//	Buff_KR[ii].Send_cancel = false
-							//})
-							//<-timer1.C
+
 						}
 						if Buff_KR[ii].Send_cancel { // сбрасываем команду
 							result5, err3 := client.WriteSingleRegister(uint16(chanel.Set_node[count].Address_data), binary.BigEndian.Uint16(result4)^uint16(1<<Buff_KR[ii].Num_chanel))
@@ -962,5 +554,5 @@ func Modbus_up() {
 	Debug = false    // останавливаем вывод на экран отладочной информации
 	fmt.Printf("Stop !!!!!\n\n")
 	Log.Printf("Stop !!!!!\n\n")
-	time.Sleep(time.Millisecond * 400)
+	time.Sleep(time.Millisecond * 500)
 }

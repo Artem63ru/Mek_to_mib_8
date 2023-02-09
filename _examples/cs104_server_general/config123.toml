@@ -1,0 +1,112 @@
+#[tomlConfig]
+version = "0.0.4"
+upport_tcp = 45502
+local_port = 17000
+count_tty_serial = 0
+count_tcp_serial = 1
+   
+[[tcp_serial]]
+   mode = "TCP"
+   ip = "172.16.205.141"
+   port = 502
+   time_loop = 100
+   count_node = 6
+   
+   [[tcp_serial.set_node]]
+       enable = true
+       address_id = 1
+       command = 3
+       address_data = 22
+       data_length = 1
+       index_up = 1
+       type_par = 2
+   
+   [[tcp_serial.set_node]]
+       enable = true
+       address_id = 1
+       command = 3
+       address_data = 3
+       data_length = 6
+       index_up = 30001
+       type_par = 1
+   
+       [[tcp_serial.set_node.Params]]
+           id = 1
+           Addres = 30001 
+           Hi = "25.7"
+           Low = "-100"
+
+   
+       [[tcp_serial.set_node.Params]]
+           id = 2
+           Addres = 30002 
+           Hi = "10"
+           Low = "0"
+
+   
+       [[tcp_serial.set_node.Params]]
+           id = 3
+           Addres = 30003 
+           Hi = "10"
+           Low = "0"
+
+   
+       [[tcp_serial.set_node.Params]]
+           id = 4
+           Addres = 30004 
+           Hi = "10"
+           Low = "0"
+
+   
+       [[tcp_serial.set_node.Params]]
+           id = 5
+           Addres = 30005 
+           Hi = "10"
+           Low = "0"
+
+   
+       [[tcp_serial.set_node.Params]]
+           id = 6
+           Addres = 30006 
+           Hi = "10"
+           Low = "0"
+
+
+   [[tcp_serial.set_node]]
+       enable = true
+       address_id = 1
+       command = 3
+       address_data = 13
+       data_length = 4
+       index_up = 30014
+       type_par = 1
+   
+   [[tcp_serial.set_node]]
+       enable = true
+       address_id = 0
+       command = 5
+       address_data = 32768
+       data_length = 1
+       index_up = 101
+       type_par = 3
+   
+   [[tcp_serial.set_node]]
+       enable = true
+       address_id = 8
+       command = 5
+       address_data = 32768
+       data_length = 1
+       index_up = 102
+       type_par = 3
+   
+   [[tcp_serial.set_node]]
+       enable = true
+       address_id = 1
+       command = 3
+       address_data = 24
+       data_length = 1
+       index_up = 16
+       type_par = 2
+   
+[[tcp_serial]]   
+   
