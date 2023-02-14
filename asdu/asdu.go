@@ -130,6 +130,10 @@ type BD_params_KR struct {
 	FOFX            SinglePointInfo //	Информация о том, что после подачи команды на закрытие не пришёл сигнал с концевика закрыт (IOFX) за установленное время (STSX).
 	FFON            SinglePointInfo //	Информация об открытии (пропадание концевика закрыт) ИМ без управляющего воздействия
 	FFOF            SinglePointInfo //	Информация о закрытии (пропадание концевика открыт) ИМ без управляющего воздействия
+	SolON           SinglePointInfo //	Информация об соленойде открытии КЗ или обрыв
+	SolOF           SinglePointInfo //	Информация о закрытии соленойде  КЗ или обрыв
+	Sol_Com_ON      SinglePointInfo //	Информация об соленойде команды открытии КЗ или обрыв
+	Sol_COM_OF      SinglePointInfo //	Информация о соленойде команды закрытии КЗ или обрыв
 
 	Done chan bool
 
@@ -164,7 +168,7 @@ func (k *BD_params_KR) C_ON(done <-chan bool) bool {
 	if k.KR_OF && k.COM_ON {
 		fmt.Print("Выставил команду открыть", k.ID)
 		modbus_mk.Com_tcp_serial(true, false, k.ID)
-		k.Tim_com = time.NewTimer(30 * time.Second) // таймер перестановки
+		k.Tim_com = time.NewTimer(120 * time.Second) // таймер перестановки
 
 		select {
 		case <-done:
@@ -198,7 +202,7 @@ func (k *BD_params_KR) C_OF(done <-chan bool) bool {
 	if k.KR_ON && k.COM_OF {
 		fmt.Print("Выставил команду")
 		modbus_mk.Com_tcp_serial(true, false, k.ID+1)
-		k.Tim_com = time.NewTimer(20 * time.Second) // таймер перестановки
+		k.Tim_com = time.NewTimer(120 * time.Second) // таймер перестановки
 
 		select {
 		case <-done:

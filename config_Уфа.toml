@@ -1,0 +1,172 @@
+#[tomlConfig]
+version = "0.1.6"
+upport_tcp = 45502
+local_port = 17000
+count_tty_serial = 0
+count_tcp_serial = 1
+   
+[[tcp_serial]]
+   mode = "TCP"
+   ip = "192.168.1.135"
+   port = 502
+   time_loop = 100
+   count_node = 13
+   
+   [[tcp_serial.set_node]]
+       enable = true
+       address_id = 1
+       command = 3
+       address_data = 22
+       data_length = 1
+       index_up = 10001
+       type_par = 2
+   
+   [[tcp_serial.set_node]]
+       enable = true
+       address_id = 1
+       command = 3
+       address_data = 3
+       data_length = 6
+       index_up = 30001
+       type_par = 1
+   
+       [[tcp_serial.set_node.Params]]
+           id = 1
+           Addres = 30001 
+           Hi = "100"
+           Low = "0"
+
+   
+       [[tcp_serial.set_node.Params]]
+           id = 2
+           Addres = 30002 
+           Hi = "6"
+           Low = "0"
+
+   
+       [[tcp_serial.set_node.Params]]
+           id = 3
+           Addres = 30003 
+           Hi = "6"
+           Low = "0"
+
+   
+       [[tcp_serial.set_node.Params]]
+           id = 4
+           Addres = 30004 
+           Hi = "50"
+           Low = "-50"
+
+   
+       [[tcp_serial.set_node.Params]]
+           id = 5
+           Addres = 30005 
+           Hi = "50"
+           Low = "-50"
+
+   
+       [[tcp_serial.set_node.Params]]
+           id = 6
+           Addres = 30006 
+           Hi = "6"
+           Low = "0"
+
+   
+   [[tcp_serial.set_node]]
+       enable = true
+       address_id = 1
+       command = 3
+       address_data = 24
+       data_length = 1
+       index_up = 10101
+       type_par = 2
+   
+   [[tcp_serial.set_node]]
+       enable = true
+       address_id = 1
+       command = 3
+       address_data = 26
+       data_length = 1
+       index_up = 10201
+       type_par = 2
+   
+   [[tcp_serial.set_node]]
+       enable = true
+       address_id = 1
+       command = 3
+       address_data = 28
+       data_length = 1
+       index_up = 10301
+       type_par = 2
+   
+   [[tcp_serial.set_node]]
+       enable = true
+       address_id = 0
+       command = 5
+       address_data = 32768
+       data_length = 1
+       index_up = 101
+       type_par = 3
+
+    [[tcp_serial.set_node]]
+        enable = true
+        address_id = 1
+        command = 3
+        address_data = 1
+        data_length = 1
+        index_up = 11002
+        type_par = 5
+
+    [[tcp_serial.set_node]]
+        enable = true
+        address_id = 1
+        command = 3
+        address_data = 11
+        data_length = 1
+        index_up = 11003
+        type_par = 5
+    [[tcp_serial.set_node]]
+        enable = true
+        address_id = 1
+        command = 3
+        address_data = 21
+        data_length = 1
+        index_up = 11004
+        type_par = 5
+
+    [[tcp_serial.set_node]]
+        enable = true
+        address_id = 1
+        command = 3
+        address_data = 23
+        data_length = 1
+        index_up = 11005
+        type_par = 5
+
+    [[tcp_serial.set_node]]
+        enable = true
+        address_id = 1
+        command = 3
+        address_data = 25
+        data_length = 1
+        index_up = 11006
+        type_par = 5
+    [[tcp_serial.set_node]]
+        enable = true
+        address_id = 1
+        command = 3
+        address_data = 27
+        data_length = 1
+        index_up = 11007
+        type_par = 5
+
+    [[tcp_serial.set_node]]
+        enable = true
+        address_id = 1
+        command = 3
+        address_data = 29
+        data_length = 1
+        index_up = 11008
+        type_par = 5
+[[tcp_serial]]   
+   

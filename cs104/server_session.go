@@ -636,10 +636,10 @@ func (sf *SrvSession) Sparodic_send(c asdu.Connect) {
 			}
 		}
 		for i := 0; i < Count_DIpar; i++ {
-			if Buff_D[i].Up_Val {
-				asdu.SingleCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, 1, Buff_D[i].Mek_104)
-				Buff_D[i].Up_Val = false
-			}
+			//	if Buff_D[i].Up_Val {
+			asdu.SingleCP56Time2a(c, asdu.CauseOfTransmission{Cause: asdu.Spontaneous}, 1, Buff_D[i].Mek_104)
+			//		Buff_D[i].Up_Val = false
+			//	}
 		}
 		for i := 0; i < Count_DOpar; i++ {
 			//if Buff_KR[i].FDSX.Value {

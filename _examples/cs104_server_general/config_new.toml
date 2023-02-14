@@ -7,11 +7,11 @@ count_tcp_serial = 1
    
 [[tcp_serial]]
    mode = "TCP"
-   ip = "171.16.205.143"
+   ip = "172.16.205.141"
 #   ip = "127.0.0.1"
    port = 502
-   time_loop = 100
-   count_node = 2
+   time_loop = 400
+   count_node = 9
    
    [[tcp_serial.set_node]]
        enable = true
@@ -95,52 +95,52 @@ count_tcp_serial = 1
        data_length = 7
        index_up = 30009
        type_par = 1
-   
+
        [[tcp_serial.set_node.Params]]
            id = 9
-           Addres = 30009 
+           Addres = 30009
            Hi = "60"
            Low = "0"
 
-   
+
        [[tcp_serial.set_node.Params]]
            id = 10
-           Addres = 30010 
+           Addres = 30010
            Hi = "60"
            Low = "0"
 
-   
+
        [[tcp_serial.set_node.Params]]
            id = 11
-           Addres = 30011 
+           Addres = 30011
            Hi = "60"
            Low = "0"
 
-   
+
        [[tcp_serial.set_node.Params]]
            id = 12
-           Addres = 30012 
+           Addres = 30012
            Hi = "50"
            Low = "-50"
 
-   
+
        [[tcp_serial.set_node.Params]]
            id = 13
-           Addres = 30013 
+           Addres = 30013
            Hi = "60"
            Low = "0"
 
-   
+
        [[tcp_serial.set_node.Params]]
            id = 14
-           Addres = 30014 
+           Addres = 30014
            Hi = "60"
            Low = "0"
 
-   
+
        [[tcp_serial.set_node.Params]]
            id = 15
-           Addres = 30015 
+           Addres = 30015
            Hi = "50"
            Low = "-50"
 
@@ -171,78 +171,35 @@ count_tcp_serial = 1
        data_length = 1
        index_up = 10301
        type_par = 2
-   
-   [[tcp_serial.set_node]]
-       enable = true
-       address_id = 0
-       command = 5
-       address_data = 32768
-       data_length = 1
-       index_up = 101
-       type_par = 3
-   
-   [[tcp_serial.set_node]]
-       enable = true
-       address_id = 2
-       command = 5
-       address_data = 32768
-       data_length = 1
-       index_up = 103
-       type_par = 3
-   
-   [[tcp_serial.set_node]]
-       enable = true
-       address_id = 4
-       command = 5
-       address_data = 32768
-       data_length = 1
-       index_up = 105
-       type_par = 3
-   
-   [[tcp_serial.set_node]]
-       enable = true
-       address_id = 6
-       command = 5
-       address_data = 32768
-       data_length = 1
-       index_up = 107
-       type_par = 3
-   
-   [[tcp_serial.set_node]]
-       enable = true
-       address_id = 8
-       command = 5
-       address_data = 32768
-       data_length = 1
-       index_up = 109
-       type_par = 3
-   
-   [[tcp_serial.set_node]]
-       enable = true
-       address_id = 10
-       command = 5
-       address_data = 32768
-       data_length = 1
-       index_up = 111
-       type_par = 3
-   
-   [[tcp_serial.set_node]]
-       enable = true
-       address_id = 12
-       command = 5
-       address_data = 32768
-       data_length = 1
-       index_up = 113
-       type_par = 3
-   
-   [[tcp_serial.set_node]]
-       enable = true
-       address_id = 14
-       command = 5
-       address_data = 32768
-       data_length = 1
-       index_up = 115
-       type_par = 3
-   
-[[tcp_serial]]   
+
+# кран – DO01 - КР01 - открыть
+    [[tcp_serial.set_node]]
+        enable = true           # работает или нет
+        address_id = 0          # В двнном случае номер канала в модуле управления
+        command = 5             # команда запроса – запрос INPUT регитстров из устройства
+        address_data = 32768    # адрес данных в устройстве
+        data_length = 1         # Количество команд открыть/закрыть 2 шт.
+        index_up = 101           # индекс на общей карте параметров
+        type_par = 3            # Тип параметра получаемого от такт-у 1-AI, 2-DI
+# кран – DO01 - КР02 -
+    [[tcp_serial.set_node]]
+        enable = true           # работает или нет
+        address_id = 2          # В двнном случае номер канала в модуле управления
+        command = 5             # команда запроса – запрос INPUT регитстров из устройства
+        address_data = 32768    # адрес данных в устройстве
+        data_length = 1         # Количество команд открыть/закрыть 2 шт.
+        index_up = 103           # индекс на общей карте параметров
+        type_par = 3            # Тип параметра получаемого от такт-у 1-AI, 2-DI
+# кран – DO01 - КР03 -
+    [[tcp_serial.set_node]]
+        enable = true           # работает или нет
+        address_id = 4          # В двнном случае номер канала в модуле управления
+        command = 5             # команда запроса – запрос INPUT регитстров из устройства
+        address_data = 32768    # адрес данных в устройстве
+        data_length = 1         # Количество команд открыть/закрыть 2 шт.
+        index_up = 105           # индекс на общей карте параметров
+        type_par = 3            # Тип параметра получаемого от такт-у 1-AI, 2-DI
+
+
+[[tcp_serial]]
    

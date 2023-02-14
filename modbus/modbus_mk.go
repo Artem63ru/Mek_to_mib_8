@@ -223,9 +223,10 @@ var kr KR_registrs_cils
 func Com_tcp_serial(CMD bool, Send_Cansel bool, Numd int) {
 	//var timer1 time.Timer
 	//handler := modbus.NewRTUClientHandler(chanel.Port_tty) // с версии 0.17 пишем порты напямую, можно COM-порты пускать под Wndows
-	//handler := modbus.NewTCPClientHandler("172.16.205.141:502") // с версии 0.17 пишем порты напямую, можно COM-порты пускать под Wndows
-	handler := modbus.NewTCPClientHandler("127.0.0.1:502") // с версии 0.17 пишем порты напямую, можно COM-порты пускать под Wndows
-	handler.IdleTimeout = 10                               //  тайл-аут на операции
+	//handler := modbus.NewTCPClientHandler("172.16.205.143:502") // с версии 0.17 пишем порты напямую, можно COM-порты пускать под Wndows
+	//handler := modbus.NewTCPClientHandler("127.0.0.1:502") // с версии 0.17 пишем порты напямую, можно COM-порты пускать под Wndows
+	handler := modbus.NewTCPClientHandler("192.168.1.135:502") // с версии 0.17 пишем порты напямую, можно COM-порты пускать под Wndows
+	handler.IdleTimeout = 10                                   //  тайл-аут на операции
 	handler.SlaveId = 1
 
 	err := handler.Connect()
@@ -238,8 +239,8 @@ func Com_tcp_serial(CMD bool, Send_Cansel bool, Numd int) {
 		}
 		//	Log.Printf("**ERROR** REQ: No open Serial Port chanel: '%s'\r\n", chanel.Ip)
 		Log.Printf(err.Error())
-		os.Exit(-1) // критическая ошибка !!!!!
-		//return // просто выходим из подпрограмы опроса канала
+		//os.Exit(-1) // критическая ошибка !!!!!
+		return // просто выходим из подпрограмы опроса канала
 	} else {
 		client := modbus.NewClient(handler)
 		result4, err3 := client.ReadHoldingRegisters(uint16(30), uint16(1)) // Вычитываем что в регистре управления DO
@@ -279,8 +280,8 @@ func req_tcp_serial(chanel *Set_tcp, cc <-chan struct{}, inc <-chan inc_req, arr
 		}
 		Log.Printf("**ERROR** REQ: No open Serial Port chanel: '%s'\r\n", chanel.Ip)
 		Log.Printf(err.Error())
-		os.Exit(-1) // критическая ошибка !!!!!
-		//return // просто выходим из подпрограмы опроса канала
+		//os.Exit(-1) // критическая ошибка !!!!!
+		return // просто выходим из подпрограмы опроса канала
 	} else {
 
 		client := modbus.NewClient(handler)
@@ -360,6 +361,23 @@ func req_tcp_serial(chanel *Set_tcp, cc <-chan struct{}, inc <-chan inc_req, arr
 								//st := strconv.FormatUint(uint64(buf), 10)
 								//fmt.Printf("%s", st)
 							}
+							// Диагностика модулей
+							if chanel.Set_node[count].Type_par == 5 { // Разбираем Слово на биты если нам надо прочитать дискретный вход
+								buf := new_data[ii]
+								for j := 0; j < 1; j++ {
+									if (buf>>j)&1 == 1 {
+										var val_d = Bufer_D{j + int(chanel.Set_node[count].Index_up), false}
+										array_d = append(array_d, val_d)
+									} else {
+										var val_d = Bufer_D{j + int(chanel.Set_node[count].Index_up), true}
+										array_d = append(array_d, val_d)
+									}
+
+								}
+								//st := strconv.FormatUint(uint64(buf), 10)
+								//fmt.Printf("%s", st)
+							}
+
 						}
 
 					}
@@ -516,8 +534,11 @@ func Modbus_up() {
 				Count_DIpar = Count_DIpar + 16
 			case 3:
 				Count_DOpar = Count_DOpar + int(config.Tcp_serial[i].Set_node[y].Data_length)
+			case 5:
+				Count_DIpar++
 			}
 		}
+		Count_DIpar = Count_DIpar + 8
 	}
 	// пытаемся открыть файл для записи лога
 	fl, errl := os.OpenFile("test_dm04.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0777)

@@ -192,6 +192,18 @@ func Ser_Init(path string) {
 				Buff_KR[Count_DOpar].ID = int(ConfigT.Tcp_serial[i].Set_node[y].Address_id)
 				Buff_KR[Count_DOpar].Mek_104_Off.Time = time.Now() // номер параметр в массиве
 				Count_DOpar = Count_DOpar + 1
+			case 5:
+				indx := ConfigT.Tcp_serial[i].Set_node[y].Index_up     // стартовый индекс
+				addr := ConfigT.Tcp_serial[i].Set_node[y].Address_data // адрес в МК такта
+				//Count_DIpar++
+				for x := 0; x < 1; x++ {
+					Buff_D[Count_DIpar].Mek_104.Ioa = asdu.InfoObjAddr(int(indx)) // делаем адресацию как в модбасе инпутрегистры
+					Buff_D[Count_DIpar].Mod_adress = int(addr)                    // адрес модбаса в МК
+					Buff_D[Count_DIpar].ID = int(indx)
+					Buff_D[Count_DIpar].Mek_104.Time = time.Now() // номер параметр в массиве
+					Count_DIpar++
+				}
+
 			}
 
 		}
@@ -256,44 +268,72 @@ func read_mod() {
 				Buff_KR[1].KR_OF = Buff_D[i+3].Mek_104.Value
 				Buff_KR[2].KR_ON = Buff_D[i+4].Mek_104.Value
 				Buff_KR[2].KR_OF = Buff_D[i+5].Mek_104.Value
+				Buff_KR[3].KR_ON = Buff_D[i+6].Mek_104.Value
+				Buff_KR[3].KR_OF = Buff_D[i+7].Mek_104.Value
+				Buff_KR[4].KR_ON = Buff_D[i+8].Mek_104.Value
+				Buff_KR[4].KR_OF = Buff_D[i+9].Mek_104.Value
+				Buff_KR[5].KR_ON = Buff_D[i+10].Mek_104.Value
+				Buff_KR[5].KR_OF = Buff_D[i+11].Mek_104.Value
+				Buff_KR[6].KR_ON = Buff_D[i+12].Mek_104.Value
+				Buff_KR[6].KR_OF = Buff_D[i+13].Mek_104.Value
+				Buff_KR[7].KR_ON = Buff_D[i+14].Mek_104.Value
+				Buff_KR[7].KR_OF = Buff_D[i+15].Mek_104.Value
 				i = 250
 			}
 			for i := 0; i < Count_DOpar; i++ {
 				// Двойное состояние
 				if Buff_KR[i].KR_ON && Buff_KR[i].KR_OF {
 					Buff_KR[i].FDSX.Value = true
+					Buff_KR[i].FDSX.Time = time.Now()
+
 				} else {
 					Buff_KR[i].FDSX.Value = false
+					Buff_KR[i].FDSX.Time = time.Now()
 				}
-				// Включение ИМ
+				// Включение ИМ Снятие команды
 				if Buff_KR[i].KR_ON && Buff_KR[i].COM_ON {
-					Buff_KR[i].Done <- true
+					go func() {
+						Buff_KR[i].COM_ON = false
+						time.Sleep(time.Second * 3) // время дожима
+						Buff_KR[i].Done <- true
+					}()
+
 				}
-				// Отключение ИМ
+				// Отключение ИМ Снятие команды
 				if Buff_KR[i].KR_OF && Buff_KR[i].COM_OF {
-					Buff_KR[i].Done <- true
+					go func() {
+						Buff_KR[i].COM_OF = false
+						time.Sleep(time.Second * 3) // время дожима
+						Buff_KR[i].Done <- true
+					}()
 				}
 				//********************** Несанкционированный сход с концевика ЗАКРЫТ (несанкционированное открытие/включение) **************************
 				if !Buff_KR[i].KR_OF && Buff_KR[i].IOFX_prvs && !Buff_KR[i].COM_ON {
 					Buff_KR[i].FFON.Value = true
+					Buff_KR[i].FFON.Time = time.Now()
 				}
 				if Buff_KR[i].FFON.Value && (Buff_KR[i].CRFX.Value) {
 					Buff_KR[i].FFON.Value = false
+					Buff_KR[i].FFON.Time = time.Now()
 				}
 				//********************** Несанкционированный сход с концевика ОТКРЫТ (несанкционированное закрытие/выключение) **************************
 				if !Buff_KR[i].KR_ON && Buff_KR[i].IONX_prvs && !Buff_KR[i].COM_OF {
 					Buff_KR[i].FFOF.Value = true
+					Buff_KR[i].FFOF.Time = time.Now()
 				}
 				if Buff_KR[i].FFOF.Value && (Buff_KR[i].CRFX.Value) {
 					Buff_KR[i].FFOF.Value = false
+					Buff_KR[i].FFOF.Time = time.Now()
 				}
 				// Ставить самой последней
 				if Buff_KR[i].CRFX.Value {
 					Buff_KR[i].CRFX.Value = false
+					Buff_KR[i].CRFX.Time = time.Now()
 				}
 				Buff_KR[i].IONX_prvs = Buff_KR[i].KR_ON
 				Buff_KR[i].IOFX_prvs = Buff_KR[i].KR_OF
 			}
+			//fmt.Println("Кран 1 ", Buff_KR[0].Mek_104.Ioa)
 
 		}
 
@@ -325,7 +365,7 @@ func (sf *Server) ListenAndServer(addr string) {
 	sf.Debug("server run")
 
 	//Инициализация сервера МЭК104 переменных
-	//asdu.Par_send = Ser_Init("config123.toml")
+	//asdu.Par_send = Ser_Init("config.toml")
 
 	modbus_mk.Modbus_up()
 	//go modbus_mk.Modbus_up()
